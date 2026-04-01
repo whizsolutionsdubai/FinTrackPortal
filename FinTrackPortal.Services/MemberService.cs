@@ -3,6 +3,7 @@ using FinTrackPortal.Interfaces;
 
 namespace FinTrackPortal.Services
 {
+    /// <summary>Delegates all member operations to <see cref="IMemberRepository"/>.</summary>
     public class MemberService : IMemberService
     {
         private readonly IMemberRepository _repository;

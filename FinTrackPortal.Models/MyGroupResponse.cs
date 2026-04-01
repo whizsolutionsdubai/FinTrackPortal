@@ -1,5 +1,6 @@
 namespace FinTrackPortal.Models
 {
+    /// <summary>Returned by GET /api/Group/my-groups. One entry per group the logged-in member belongs to.</summary>
     public class MyGroupResponse
     {
         public long GroupId { get; set; }

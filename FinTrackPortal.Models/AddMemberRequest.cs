@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FinTrackPortal.Models
 {
+    /// <summary>Request body for POST /api/Group/add-member. Role defaults to "Member" if omitted.</summary>
     public class AddMemberRequest
     {
         [Required]

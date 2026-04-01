@@ -7,6 +7,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FinTrackPortal.API.Controllers
 {
+    /// <summary>
+    /// Group management endpoints — create, add members, summary, and listing.
+    /// All endpoints require JWT authentication.
+    /// </summary>
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
@@ -19,6 +23,7 @@ namespace FinTrackPortal.API.Controllers
             _groupService = groupService;
         }
 
+        /// <summary>POST /api/Group/create — Creates a group and adds the caller as Admin.</summary>
         [HttpPost("create")]
         public async Task<IActionResult> Create([FromBody] CreateGroupRequest request)
         {
@@ -42,6 +47,7 @@ namespace FinTrackPortal.API.Controllers
             }, "Group created successfully"));
         }
 
+        /// <summary>POST /api/Group/add-member — Adds an existing member to a group.</summary>
         [HttpPost("add-member")]
         public async Task<IActionResult> AddMember([FromBody] AddMemberRequest request)
         {
@@ -67,6 +73,7 @@ namespace FinTrackPortal.API.Controllers
             }, "Member added successfully"));
         }
 
+        /// <summary>GET /api/Group/summary/{groupId} — Per-member balance breakdown (paid, share, net).</summary>
         [HttpGet("summary/{groupId}")]
         public async Task<IActionResult> Summary(long groupId)
         {
@@ -78,6 +85,7 @@ namespace FinTrackPortal.API.Controllers
             return Ok(ApiResponse<GroupSummaryResponse>.SuccessResponse(result.Data!, "Group summary retrieved successfully"));
         }
 
+        /// <summary>GET /api/Group/my-groups — Lists all groups the logged-in member belongs to.</summary>
         [HttpGet("my-groups")]
         public async Task<IActionResult> MyGroups()
         {
@@ -90,6 +98,7 @@ namespace FinTrackPortal.API.Controllers
             return Ok(ApiResponse<List<MyGroupResponse>>.SuccessResponse(result.Data!, "Groups retrieved successfully"));
         }
 
+        /// <summary>GET /api/Group/{groupId}/members — Lists all members with roles.</summary>
         [HttpGet("{groupId}/members")]
         public async Task<IActionResult> GetMembers(long groupId)
         {

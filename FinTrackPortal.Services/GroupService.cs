@@ -4,6 +4,7 @@ using FinTrackPortal.Models;
 
 namespace FinTrackPortal.Services
 {
+    /// <summary>Delegates all group operations to <see cref="IGroupRepository"/>.</summary>
     public class GroupService : IGroupService
     {
         private readonly IGroupRepository _repository;

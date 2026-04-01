@@ -3,6 +3,10 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FinTrackPortal.Models
 {
+    /// <summary>
+    /// Maps to the [dbo].[Users] table. Holds login credentials
+    /// and is linked to a <see cref="Member"/> via MemberId.
+    /// </summary>
     [Table("Users", Schema = "dbo")]
     public class User : BaseEntity
     {

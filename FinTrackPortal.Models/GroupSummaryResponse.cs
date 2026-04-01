@@ -1,5 +1,10 @@
 namespace FinTrackPortal.Models
 {
+    /// <summary>
+    /// Returned by GET /api/Group/summary/{groupId}.
+    /// Contains per-member balances: Paid (total paid), Share (total owed), Net (Paid - Share).
+    /// Positive Net = member is owed money; negative Net = member owes money.
+    /// </summary>
     public class GroupSummaryResponse
     {
         public long GroupId { get; set; }

@@ -9,6 +9,10 @@ using System.Data;
 
 namespace FinTrackPortal.Repositories
 {
+    /// <summary>
+    /// Dapper implementation of <see cref="IGroupRepository"/>.
+    /// All queries go through SQL Server stored procedures — no inline SQL.
+    /// </summary>
     public class GroupRepository : IGroupRepository
     {
         private readonly IConfiguration _config;
@@ -162,6 +166,10 @@ namespace FinTrackPortal.Repositories
             }
         }
 
+        /// <summary>
+        /// Generate a short group code from the group name initials + 4 random hex chars.
+        /// Example: "Dubai Friends" → "DF-A1B2".
+        /// </summary>
         private static string GenerateGroupCode(string groupName)
         {
             var words = groupName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -175,6 +183,7 @@ namespace FinTrackPortal.Repositories
             return $"{initials}-{random}";
         }
 
+        /// <summary>Internal DTO for the flat rows returned by sp_GetGroupSummary before grouping.</summary>
         private class GroupSummaryRow
         {
             public string GroupName { get; set; } = string.Empty;

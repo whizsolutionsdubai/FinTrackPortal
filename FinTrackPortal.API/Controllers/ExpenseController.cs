@@ -7,6 +7,11 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FinTrackPortal.API.Controllers
 {
+    /// <summary>
+    /// Group and personal expense endpoints — add, edit, delete, list.
+    /// Group expense operations validate membership before proceeding.
+    /// All endpoints require JWT authentication.
+    /// </summary>
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
@@ -21,6 +26,11 @@ namespace FinTrackPortal.API.Controllers
             _groupService = groupService;
         }
 
+        /// <summary>
+        /// POST /api/Expense/add — Add a group expense with equal or custom split.
+        /// Validates that the caller, payer, and all split members belong to the group.
+        /// For "Custom" splits, CustomAmounts must match Members count and sum to Amount.
+        /// </summary>
         [HttpPost("add")]
         public async Task<IActionResult> Add([FromBody] AddExpenseRequest request)
         {
@@ -78,6 +88,9 @@ namespace FinTrackPortal.API.Controllers
             }, "Expense added successfully"));
         }
 
+        /// <summary>
+        /// PUT /api/Expense/edit — Update expense details and rebuild all splits in a transaction.
+        /// </summary>
         [HttpPut("edit")]
         public async Task<IActionResult> Edit([FromBody] EditExpenseRequest request)
         {
@@ -117,6 +130,7 @@ namespace FinTrackPortal.API.Controllers
             }, "Expense updated successfully"));
         }
 
+        /// <summary>DELETE /api/Expense/delete/{expenseId} — Soft-delete an expense and its splits.</summary>
         [HttpDelete("delete/{expenseId}")]
         public async Task<IActionResult> Delete(long expenseId)
         {
@@ -133,6 +147,7 @@ namespace FinTrackPortal.API.Controllers
             }, "Expense deleted successfully"));
         }
 
+        /// <summary>GET /api/Expense/group/{groupId} — List all active expenses for a group.</summary>
         [HttpGet("group/{groupId}")]
         public async Task<IActionResult> GetByGroup(long groupId)
         {
@@ -144,6 +159,7 @@ namespace FinTrackPortal.API.Controllers
             return Ok(ApiResponse<List<ExpenseResponse>>.SuccessResponse(result.Data!, "Expenses retrieved successfully"));
         }
 
+        /// <summary>POST /api/Expense/personal — Add a personal (non-group) expense for the logged-in user.</summary>
         [HttpPost("personal")]
         public async Task<IActionResult> AddPersonal([FromBody] AddPersonalExpenseRequest request)
         {
@@ -172,6 +188,7 @@ namespace FinTrackPortal.API.Controllers
             }, "Personal expense added successfully"));
         }
 
+        /// <summary>GET /api/Expense/personal — List personal expenses for the logged-in user.</summary>
         [HttpGet("personal")]
         public async Task<IActionResult> GetPersonal()
         {

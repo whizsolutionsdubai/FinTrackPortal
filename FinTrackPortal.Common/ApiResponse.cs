@@ -1,5 +1,10 @@
 namespace FinTrackPortal.Common
 {
+    /// <summary>
+    /// Standardised JSON envelope returned by every API endpoint.
+    /// Controllers use SuccessResponse and ErrorResponse
+    /// factory methods to ensure a consistent shape for all HTTP responses.
+    /// </summary>
     public class ApiResponse<T>
     {
         public bool Success { get; set; }

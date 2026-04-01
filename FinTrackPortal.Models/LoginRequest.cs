@@ -1,7 +1,8 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace FinTrackPortal.Models
 {
+    /// <summary>Request body for POST /api/Auth/login.</summary>
     public class LoginRequest
     {
         [Required]

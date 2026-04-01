@@ -2,6 +2,11 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FinTrackPortal.Models
 {
+    /// <summary>
+    /// Request body for POST /api/Expense/add.
+    /// SplitType is "Equal" or "Custom". When "Custom", provide CustomAmounts
+    /// matching the Members list (must sum to Amount).
+    /// </summary>
     public class AddExpenseRequest
     {
         [Required]

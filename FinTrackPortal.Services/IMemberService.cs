@@ -2,6 +2,10 @@ using FinTrackPortal.Common;
 
 namespace FinTrackPortal.Services
 {
+    /// <summary>
+    /// Business-logic contract for member profile CRUD.
+    /// Currently a thin pass-through to <see cref="Interfaces.IMemberRepository"/>.
+    /// </summary>
     public interface IMemberService
     {
         Task<OperationResult<long>> CreateMemberAsync(string memberName, string createdBy);

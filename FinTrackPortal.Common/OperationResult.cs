@@ -1,5 +1,10 @@
-﻿namespace FinTrackPortal.Common
+namespace FinTrackPortal.Common
 {
+    /// <summary>
+    /// Generic wrapper for service/repository results.
+    /// Every data-access and business-logic method returns this so callers
+    /// can branch on <see cref="IsSuccess"/> without catching exceptions.
+    /// </summary>
     public class OperationResult<T>
     {
         public bool IsSuccess { get; set; }

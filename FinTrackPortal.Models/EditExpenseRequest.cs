@@ -2,6 +2,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FinTrackPortal.Models
 {
+    /// <summary>
+    /// Request body for PUT /api/Expense/edit.
+    /// Replaces the expense details and rebuilds all splits in a single transaction.
+    /// </summary>
     public class EditExpenseRequest
     {
         [Required]

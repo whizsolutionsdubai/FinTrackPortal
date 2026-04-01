@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FinTrackPortal.Models
 {
+    /// <summary>Request body for POST /api/Member/create.</summary>
     public class CreateMemberRequest
     {
         [Required]

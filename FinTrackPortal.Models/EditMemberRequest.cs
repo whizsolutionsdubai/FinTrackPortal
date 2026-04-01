@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FinTrackPortal.Models
 {
+    /// <summary>Request body for PUT /api/Member/edit.</summary>
     public class EditMemberRequest
     {
         [Required]

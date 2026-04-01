@@ -1,5 +1,9 @@
 namespace FinTrackPortal.Models
 {
+    /// <summary>
+    /// Returned by sp_GetExpensesByGroup and sp_GetPersonalExpenses.
+    /// Includes the payer's name resolved via JOIN.
+    /// </summary>
     public class ExpenseResponse
     {
         public long ExpenseId { get; set; }

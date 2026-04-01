@@ -30,11 +30,12 @@ FinTrackPortal.sln
 
 ## API Endpoints
 
-### Auth (`api/Auth`)
+### Auth (`api/Auth`) -- No token required
 
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| POST | `/api/Auth/login` | Public | Authenticate and receive a JWT |
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | `/api/Auth/login` | Authenticate and receive a JWT |
+| POST | `/api/Auth/register` | Register a new user (creates Member + User) |
 
 ### Groups (`api/Group`)
 
@@ -42,30 +43,38 @@ FinTrackPortal.sln
 |--------|-------|-------------|
 | POST | `/api/Group/create` | Create a new group |
 | POST | `/api/Group/add-member` | Add a member to a group |
-| GET | `/api/Group/summary/{groupId}` | Get group expense summary |
+| GET | `/api/Group/summary/{groupId}` | Get balance summary (paid, share, net per member) |
 | GET | `/api/Group/my-groups` | List groups for the current user |
-| GET | `/api/Group/{groupId}/members` | List members of a group |
+| GET | `/api/Group/{groupId}/members` | List members of a group with roles |
 
 ### Expenses (`api/Expense`)
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| POST | `/api/Expense/add` | Add a group expense |
-| PUT | `/api/Expense/edit` | Edit an existing expense |
-| DELETE | `/api/Expense/delete/{expenseId}` | Delete an expense |
+| POST | `/api/Expense/add` | Add a group expense with equal or custom split |
+| PUT | `/api/Expense/edit` | Edit an existing group expense |
+| DELETE | `/api/Expense/delete/{expenseId}` | Soft-delete an expense |
 | GET | `/api/Expense/group/{groupId}` | Get expenses for a group |
-| POST | `/api/Expense/personal` | Add a personal expense |
-| GET | `/api/Expense/personal` | Get personal expenses |
+| POST | `/api/Expense/personal` | Add a personal (non-group) expense |
+| GET | `/api/Expense/personal` | Get personal expenses for logged-in user |
+
+### Settlements (`api/Settlement`)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | `/api/Settlement/record` | Record a payment between members |
+| GET | `/api/Settlement/group/{groupId}` | Get settlement history for a group |
+| GET | `/api/Settlement/suggested/{groupId}` | Get suggested payments to clear all debts |
 
 ### Members (`api/Member`)
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| POST | `/api/Member/create` | Create a new member |
-| PUT | `/api/Member/edit` | Edit member details |
-| DELETE | `/api/Member/delete/{memberId}` | Delete a member |
+| POST | `/api/Member/create` | Create a member profile |
+| PUT | `/api/Member/edit` | Edit member name |
+| DELETE | `/api/Member/delete/{memberId}` | Soft-delete a member |
 
-> All endpoints except login require a valid JWT Bearer token.
+> All endpoints except Auth require a valid JWT Bearer token.
 
 ## Database Schema
 
@@ -93,6 +102,7 @@ Database/FinTrackDB_Schema.sql
 |-----------|---------|
 | `sp_ValidateUser` | Authenticate by email + password hash |
 | `sp_GetExpiry` | Check user account expiry |
+| `sp_RegisterUser` | Register new user (Member + User in one transaction) |
 | `sp_CreateMember` / `sp_EditMember` / `sp_DeleteMember` | Member CRUD |
 | `sp_CreateGroup` | Create group + auto-add creator as Admin |
 | `sp_AddMemberToGroup` | Add member to a group |
@@ -102,6 +112,8 @@ Database/FinTrackDB_Schema.sql
 | `sp_AddExpenseSplit` / `sp_DeleteExpenseSplits` | Manage expense splits |
 | `sp_AddPersonalExpense` / `sp_GetPersonalExpenses` | Personal expense tracking |
 | `sp_GetExpensesByGroup` | List group expenses |
+| `sp_RecordSettlement` | Record a payment between members |
+| `sp_GetSettlementsByGroup` | Get settlement history for a group |
 
 ## Getting Started
 

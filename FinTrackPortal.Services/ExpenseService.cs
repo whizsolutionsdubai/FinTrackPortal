@@ -4,6 +4,7 @@ using FinTrackPortal.Models;
 
 namespace FinTrackPortal.Services
 {
+    /// <summary>Delegates all expense operations to <see cref="IExpenseRepository"/>.</summary>
     public class ExpenseService : IExpenseService
     {
         private readonly IExpenseRepository _repository;

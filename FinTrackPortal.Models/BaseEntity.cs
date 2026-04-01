@@ -1,5 +1,9 @@
 namespace FinTrackPortal.Models
 {
+    /// <summary>
+    /// Audit columns shared by all database entities.
+    /// Every table includes CreatedBy, ModifiedBy, CreatedDate, ModifiedDate, and IsActive.
+    /// </summary>
     public class BaseEntity
     { 
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;

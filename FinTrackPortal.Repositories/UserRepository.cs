@@ -11,6 +11,10 @@ using System.Text;
 
 namespace FinTrackPortal.Repositories
 {
+    /// <summary>
+    /// Dapper implementation of <see cref="IUserRepository"/>.
+    /// All queries go through SQL Server stored procedures — no inline SQL.
+    /// </summary>
     public class UserRepository : IUserRepository
     {
         private readonly IConfiguration _config;
@@ -69,6 +73,40 @@ namespace FinTrackPortal.Repositories
             }
         }
 
+        public async Task<OperationResult<long>> RegisterAsync(
+            string memberName, string userName, string emailAddress,
+            string? mobile, string password, string createdBy)
+        {
+            try
+            {
+                using var conn = Connection;
+                var memberId = await conn.QuerySingleAsync<long>(
+                    "sp_RegisterUser",
+                    new
+                    {
+                        MemberName = memberName,
+                        UserName = userName,
+                        EmailAddress = emailAddress,
+                        Mobile = mobile,
+                        PasswordHash = HashPassword(password),
+                        CreatedBy = createdBy,
+                        ExpiryDate = DateTime.UtcNow.AddYears(1)
+                    },
+                    commandType: CommandType.StoredProcedure);
+
+                return OperationResult<long>.Success(memberId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error registering user {UserName}", userName);
+                return OperationResult<long>.Failure(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Hash a password before storing. Currently returns plain text for development.
+        /// TODO: Replace with BCrypt.Net before production (see developer reference section 5.1).
+        /// </summary>
         private static string HashPassword(string password)
         {
             return password;

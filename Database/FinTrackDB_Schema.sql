@@ -574,6 +574,96 @@ BEGIN
 END
 GO
 
+-- Registration
+CREATE OR ALTER PROCEDURE [dbo].[sp_RegisterUser]
+    @MemberName NVARCHAR(150),
+    @UserName NVARCHAR(50),
+    @EmailAddress VARCHAR(255),
+    @Mobile VARCHAR(255) = NULL,
+    @PasswordHash NVARCHAR(500),
+    @CreatedBy NVARCHAR(100),
+    @ExpiryDate DATETIME
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRANSACTION;
+    BEGIN TRY
+        IF EXISTS (
+            SELECT 1 FROM [dbo].[Users]
+            WHERE EmailAddress = @EmailAddress AND IsActive = 1
+        )
+        BEGIN
+            RAISERROR('Email address already registered.', 16, 1);
+            RETURN;
+        END
+
+        DECLARE @MemberId BIGINT;
+
+        INSERT INTO [dbo].[Member] (MemberName, CreatedBy, CreatedDate, IsActive)
+        VALUES (@MemberName, @CreatedBy, GETDATE(), 1);
+
+        SET @MemberId = SCOPE_IDENTITY();
+
+        INSERT INTO [dbo].[Users]
+            (UserName, EmailAddress, Mobile, PasswordHash,
+             MemberId, CreatedBy, CreatedDate, IsActive, ExpiryDate)
+        VALUES
+            (@UserName, @EmailAddress, @Mobile, @PasswordHash,
+             @MemberId, @CreatedBy, GETDATE(), 1, @ExpiryDate);
+
+        COMMIT TRANSACTION;
+        SELECT @MemberId;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO
+
+-- Settlement
+CREATE OR ALTER PROCEDURE [dbo].[sp_RecordSettlement]
+    @GroupId BIGINT,
+    @FromMemberId BIGINT,
+    @ToMemberId BIGINT,
+    @Amount DECIMAL(18,2),
+    @CreatedBy NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO [dbo].[Settlement]
+        (GroupId, FromMemberId, ToMemberId, Amount,
+         SettlementDate, CreatedBy, CreatedDate, IsActive)
+    VALUES
+        (@GroupId, @FromMemberId, @ToMemberId, @Amount,
+         GETDATE(), @CreatedBy, GETDATE(), 1);
+    SELECT SCOPE_IDENTITY();
+END
+GO
+
+CREATE OR ALTER PROCEDURE [dbo].[sp_GetSettlementsByGroup]
+    @GroupId BIGINT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT
+        s.SettlementId,
+        s.GroupId,
+        s.FromMemberId,
+        mf.MemberName AS FromMemberName,
+        s.ToMemberId,
+        mt.MemberName AS ToMemberName,
+        s.Amount,
+        s.SettlementDate,
+        s.CreatedDate
+    FROM [dbo].[Settlement] s
+    INNER JOIN [dbo].[Member] mf ON mf.MemberId = s.FromMemberId
+    INNER JOIN [dbo].[Member] mt ON mt.MemberId = s.ToMemberId
+    WHERE s.GroupId = @GroupId AND s.IsActive = 1
+    ORDER BY s.SettlementDate DESC;
+END
+GO
+
 USE [master]
 GO
 ALTER DATABASE [FinTrackDB] SET READ_WRITE

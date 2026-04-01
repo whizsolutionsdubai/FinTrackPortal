@@ -1,5 +1,9 @@
 namespace FinTrackPortal.Models
-{ 
+{
+    /// <summary>
+    /// Bound from the "JwtSettings" section of appsettings.json.
+    /// Used in Program.cs to configure JWT Bearer authentication.
+    /// </summary>
     public class JwtSettings
     {
         public string Key { get; set; } = string.Empty;

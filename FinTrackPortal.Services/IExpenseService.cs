@@ -3,6 +3,10 @@ using FinTrackPortal.Models;
 
 namespace FinTrackPortal.Services
 {
+    /// <summary>
+    /// Business-logic contract for expense operations.
+    /// Currently a thin pass-through to <see cref="Interfaces.IExpenseRepository"/>.
+    /// </summary>
     public interface IExpenseService
     {
         Task<OperationResult<long>> AddExpenseAsync(long groupId, string description, decimal amount, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string createdBy);

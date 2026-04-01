@@ -6,6 +6,7 @@ using FinTrackPortal.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Reflection;
 using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,7 +36,20 @@ builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "FinTrack WHIZ SOLUTIONS", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "FinTrack WHIZ SOLUTIONS",
+        Version = "v1",
+        Description = "Expense splitting and settlement API. Authenticate via /api/Auth/login to get a JWT, then use the Authorize button."
+    });
+
+    // Include XML comments from all projects so Swagger shows endpoint descriptions
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    if (File.Exists(xmlPath)) c.IncludeXmlComments(xmlPath);
+
+    var modelsXml = Path.Combine(AppContext.BaseDirectory, "FinTrackPortal.Models.xml");
+    if (File.Exists(modelsXml)) c.IncludeXmlComments(modelsXml);
 
     // Define the BearerAuth scheme
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -78,6 +92,8 @@ builder.Services.AddScoped<IExpenseRepository, ExpenseRepository>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddScoped<IMemberRepository, MemberRepository>();
 builder.Services.AddScoped<IMemberService, MemberService>();
+builder.Services.AddScoped<ISettlementRepository, SettlementRepository>();
+builder.Services.AddScoped<ISettlementService, SettlementService>();
 
 builder.Services.AddAuthentication(options =>
 {

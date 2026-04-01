@@ -3,6 +3,10 @@ using FinTrackPortal.Models;
 
 namespace FinTrackPortal.Services
 {
+    /// <summary>
+    /// Business-logic contract for group management.
+    /// Currently a thin pass-through to <see cref="Interfaces.IGroupRepository"/>.
+    /// </summary>
     public interface IGroupService
     {
         Task<OperationResult<long>> CreateGroupAsync(string groupName, long createdByMemberId, string createdBy);

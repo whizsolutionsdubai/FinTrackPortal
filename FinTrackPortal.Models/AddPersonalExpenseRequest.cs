@@ -2,6 +2,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FinTrackPortal.Models
 {
+    /// <summary>
+    /// Request body for POST /api/Expense/personal.
+    /// Personal expenses have GroupId = NULL in the database.
+    /// </summary>
     public class AddPersonalExpenseRequest
     {
         [Required]

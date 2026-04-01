@@ -8,6 +8,11 @@ using System.Data;
 
 namespace FinTrackPortal.Repositories
 {
+    /// <summary>
+    /// Dapper implementation of <see cref="IMemberRepository"/>.
+    /// Deletes are soft-deletes (IsActive = 0) — no data is permanently removed.
+    /// All queries go through SQL Server stored procedures — no inline SQL.
+    /// </summary>
     public class MemberRepository : IMemberRepository
     {
         private readonly IConfiguration _config;

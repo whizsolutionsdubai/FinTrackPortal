@@ -9,6 +9,11 @@ using System.Data;
 
 namespace FinTrackPortal.Repositories
 {
+    /// <summary>
+    /// Dapper implementation of <see cref="IExpenseRepository"/>.
+    /// Add and Edit use C#-level transactions to atomically write expense + splits.
+    /// All queries go through SQL Server stored procedures — no inline SQL.
+    /// </summary>
     public class ExpenseRepository : IExpenseRepository
     {
         private readonly IConfiguration _config;
@@ -178,6 +183,10 @@ namespace FinTrackPortal.Repositories
             }
         }
 
+        /// <summary>
+        /// Split an expense amount among members.
+        /// "Custom" uses the caller-supplied amounts; "Equal" divides evenly (rounded to 2 decimals).
+        /// </summary>
         private static List<decimal> CalculateShares(decimal amount, string splitType, List<long> members, List<decimal>? customAmounts)
         {
             if (string.Equals(splitType, "Custom", StringComparison.OrdinalIgnoreCase)
