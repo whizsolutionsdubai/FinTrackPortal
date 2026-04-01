@@ -20,8 +20,8 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
-      - name: Publish
-        run: dotnet publish --configuration Release --output ./publish
+      - name: Publish API project only
+        run: dotnet publish ./FinTrackPortal.API/FinTrackPortal.API.csproj --configuration Release --output ./publish
 
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -29,5 +29,5 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./publish/        # ← only published files
-          server-dir: /www/fintrack/   # ← your remote path on SmarterASP
+          local-dir: ./publish/
+          server-dir: /www/fintrack/
