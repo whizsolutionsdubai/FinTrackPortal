@@ -3,7 +3,7 @@ name: Build, Publish and Deploy to SmarterASP.NET
 on:
   push:
     branches:
-      - main   # change if your branch is different
+      - master   # change if your branch is different
 
 jobs:
   build_and_deploy:
