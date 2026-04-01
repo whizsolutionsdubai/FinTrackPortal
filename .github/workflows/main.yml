@@ -30,7 +30,8 @@ jobs:
 
       # Publish project
       - name: Publish
-        run: dotnet publish ./YOUR_PROJECT_NAME/YOUR_PROJECT_NAME.csproj --configuration Release --output ./publish
+        run: dotnet publish
+        #run: dotnet publish ./YOUR_PROJECT_NAME/YOUR_PROJECT_NAME.csproj --configuration Release --output ./publish
 
       # Run tests (optional)
       - name: Test
