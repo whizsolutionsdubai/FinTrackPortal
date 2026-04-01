@@ -4,6 +4,7 @@ namespace FinTrackPortal.Models
     {
         public long GroupId { get; set; }
         public string GroupName { get; set; } = string.Empty;
+        public string GroupCode { get; set; } = string.Empty;
         public List<MemberSummary> Members { get; set; } = new();
     }
 

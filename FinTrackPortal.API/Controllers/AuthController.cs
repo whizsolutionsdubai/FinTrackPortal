@@ -1,3 +1,4 @@
+using FinTrackPortal.Common;
 using FinTrackPortal.Models;
 using FinTrackPortal.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -27,22 +28,25 @@ namespace FinTrackPortal.API.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> Login([FromBody] LoginRequest login)
         {
-            // 1. Validate credentials — returns MemberId on success
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList();
+                return BadRequest(ApiResponse<object?>.ErrorResponse("Validation failed", errors));
+            }
+
             var validationResult = await _userService.ValidateUserAsync(login.UserName, login.Password);
             if (!validationResult.IsSuccess)
-                return Unauthorized("Invalid credentials");
+                return Unauthorized(ApiResponse<object?>.ErrorResponse("Invalid credentials"));
 
             var memberId = validationResult.Data;
 
-            // 2. Get user expiry
             var expiryResult = await _userService.GetUserExpiryAsync(login.UserName);
             if (!expiryResult.IsSuccess || !expiryResult.Data.HasValue)
-                return Unauthorized("Unable to retrieve account expiry");
+                return Unauthorized(ApiResponse<object?>.ErrorResponse("Unable to retrieve account expiry"));
 
             if (expiryResult.Data.Value < DateTime.UtcNow)
-                return Unauthorized("Account has expired");
+                return Unauthorized(ApiResponse<object?>.ErrorResponse("Account has expired"));
 
-            // 3. Generate JWT with Email + MemberId claims
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(_jwtSettings.Key);
             var claims = new[]
@@ -60,7 +64,13 @@ namespace FinTrackPortal.API.Controllers
             };
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
-            return Ok(new { token = tokenHandler.WriteToken(token) });
+
+            return Ok(ApiResponse<object>.SuccessResponse(new
+            {
+                token = tokenHandler.WriteToken(token),
+                memberId,
+                email = login.UserName
+            }, "Login successful"));
         }
     }
 }

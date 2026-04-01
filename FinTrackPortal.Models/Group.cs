@@ -14,6 +14,9 @@ namespace FinTrackPortal.Models
         [StringLength(150)]
         public string GroupName { get; set; } = string.Empty;
 
+        [StringLength(10)]
+        public string GroupCode { get; set; } = string.Empty;
+
         public long? CreatedByMemberId { get; set; }
     }
 }

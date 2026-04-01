@@ -16,10 +16,19 @@ namespace FinTrackPortal.Services
         public Task<OperationResult<long>> CreateGroupAsync(string groupName, long createdByMemberId, string createdBy)
             => _repository.CreateGroupAsync(groupName, createdByMemberId, createdBy);
 
-        public Task<OperationResult<bool>> AddMemberToGroupAsync(long groupId, long memberId, string createdBy)
-            => _repository.AddMemberToGroupAsync(groupId, memberId, createdBy);
+        public Task<OperationResult<bool>> AddMemberToGroupAsync(long groupId, long memberId, string role, string createdBy)
+            => _repository.AddMemberToGroupAsync(groupId, memberId, role, createdBy);
 
         public Task<OperationResult<GroupSummaryResponse>> GetGroupSummaryAsync(long groupId)
             => _repository.GetGroupSummaryAsync(groupId);
+
+        public Task<OperationResult<List<MyGroupResponse>>> GetMyGroupsAsync(long memberId)
+            => _repository.GetMyGroupsAsync(memberId);
+
+        public Task<OperationResult<List<GroupMemberResponse>>> GetGroupMembersAsync(long groupId)
+            => _repository.GetGroupMembersAsync(groupId);
+
+        public Task<OperationResult<bool>> IsMemberOfGroupAsync(long groupId, long memberId)
+            => _repository.IsMemberOfGroupAsync(groupId, memberId);
     }
 }

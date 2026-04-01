@@ -9,5 +9,8 @@ namespace FinTrackPortal.Models
 
         [Required]
         public long MemberId { get; set; }
+
+        [StringLength(20)]
+        public string? Role { get; set; }
     }
 }

@@ -28,9 +28,11 @@ namespace FinTrackPortal.Repositories
             {
                 using var conn = Connection;
 
+                string groupCode = GenerateGroupCode(groupName);
+
                 var groupId = await conn.QuerySingleAsync<long>(
                     "sp_CreateGroup",
-                    new { GroupName = groupName, CreatedByMemberId = createdByMemberId, CreatedBy = createdBy },
+                    new { GroupName = groupName, GroupCode = groupCode, CreatedByMemberId = createdByMemberId, CreatedBy = createdBy },
                     commandType: CommandType.StoredProcedure);
 
                 return OperationResult<long>.Success(groupId);
@@ -42,7 +44,7 @@ namespace FinTrackPortal.Repositories
             }
         }
 
-        public async Task<OperationResult<bool>> AddMemberToGroupAsync(long groupId, long memberId, string createdBy)
+        public async Task<OperationResult<bool>> AddMemberToGroupAsync(long groupId, long memberId, string role, string createdBy)
         {
             try
             {
@@ -50,7 +52,7 @@ namespace FinTrackPortal.Repositories
 
                 await conn.ExecuteAsync(
                     "sp_AddMemberToGroup",
-                    new { GroupId = groupId, MemberId = memberId, CreatedBy = createdBy },
+                    new { GroupId = groupId, MemberId = memberId, Role = role, CreatedBy = createdBy },
                     commandType: CommandType.StoredProcedure);
 
                 return OperationResult<bool>.Success(true);
@@ -80,6 +82,7 @@ namespace FinTrackPortal.Repositories
                 {
                     GroupId = groupId,
                     GroupName = rows[0].GroupName,
+                    GroupCode = rows[0].GroupCode,
                     Members = rows.Select(r => new MemberSummary
                     {
                         MemberId = r.MemberId,
@@ -99,9 +102,83 @@ namespace FinTrackPortal.Repositories
             }
         }
 
+        public async Task<OperationResult<List<MyGroupResponse>>> GetMyGroupsAsync(long memberId)
+        {
+            try
+            {
+                using var conn = Connection;
+
+                var groups = (await conn.QueryAsync<MyGroupResponse>(
+                    "sp_GetMyGroups",
+                    new { MemberId = memberId },
+                    commandType: CommandType.StoredProcedure)).ToList();
+
+                return OperationResult<List<MyGroupResponse>>.Success(groups);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching groups for member {MemberId}", memberId);
+                return OperationResult<List<MyGroupResponse>>.Failure(ex.Message);
+            }
+        }
+
+        public async Task<OperationResult<List<GroupMemberResponse>>> GetGroupMembersAsync(long groupId)
+        {
+            try
+            {
+                using var conn = Connection;
+
+                var members = (await conn.QueryAsync<GroupMemberResponse>(
+                    "sp_GetGroupMembers",
+                    new { GroupId = groupId },
+                    commandType: CommandType.StoredProcedure)).ToList();
+
+                return OperationResult<List<GroupMemberResponse>>.Success(members);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching members for group {GroupId}", groupId);
+                return OperationResult<List<GroupMemberResponse>>.Failure(ex.Message);
+            }
+        }
+
+        public async Task<OperationResult<bool>> IsMemberOfGroupAsync(long groupId, long memberId)
+        {
+            try
+            {
+                using var conn = Connection;
+
+                var exists = await conn.QuerySingleOrDefaultAsync<int>(
+                    "sp_IsMemberOfGroup",
+                    new { GroupId = groupId, MemberId = memberId },
+                    commandType: CommandType.StoredProcedure);
+
+                return OperationResult<bool>.Success(exists == 1);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking membership for member {MemberId} in group {GroupId}", memberId, groupId);
+                return OperationResult<bool>.Failure(ex.Message);
+            }
+        }
+
+        private static string GenerateGroupCode(string groupName)
+        {
+            var words = groupName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            string initials = words.Length >= 2
+                ? $"{char.ToUpper(words[0][0])}{char.ToUpper(words[1][0])}"
+                : groupName.Length >= 2
+                    ? $"{char.ToUpper(groupName[0])}{char.ToUpper(groupName[1])}"
+                    : $"{char.ToUpper(groupName[0])}X";
+
+            string random = Guid.NewGuid().ToString("N")[..4].ToUpper();
+            return $"{initials}-{random}";
+        }
+
         private class GroupSummaryRow
         {
             public string GroupName { get; set; } = string.Empty;
+            public string GroupCode { get; set; } = string.Empty;
             public long MemberId { get; set; }
             public string Name { get; set; } = string.Empty;
             public decimal Paid { get; set; }

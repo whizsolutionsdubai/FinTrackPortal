@@ -19,7 +19,13 @@ namespace FinTrackPortal.Models
         public long PaidBy { get; set; }
 
         [Required]
+        [StringLength(10)]
+        public string SplitType { get; set; } = "Equal";
+
+        [Required]
         [MinLength(1)]
         public List<long> Members { get; set; } = new();
+
+        public List<decimal>? CustomAmounts { get; set; }
     }
 }
