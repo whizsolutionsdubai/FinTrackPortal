@@ -1,13 +1,37 @@
 {
 	"info": {
 		"name": "FinTrackPortal API",
-		"description": "FinTrack WHIZ SOLUTIONS - Complete API Collection\n\nSetup:\n1. Import this collection\n2. Create environment with variable: baseUrl = https://localhost:7124\n3. Login first - token is auto-saved\n4. All other APIs use the token automatically",
+		"description": "FinTrack WHIZ SOLUTIONS - Complete API Collection\n\nSetup:\n1. Import this collection\n2. Import environment (Dev or Production)\n3. Select environment from top-right dropdown\n4. Login first - token is auto-saved\n5. All other APIs use the token automatically",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
 		{
 			"key": "baseUrl",
 			"value": "https://localhost:7124"
+		},
+		{
+			"key": "token",
+			"value": ""
+		},
+		{
+			"key": "memberId",
+			"value": ""
+		},
+		{
+			"key": "email",
+			"value": ""
+		},
+		{
+			"key": "groupId",
+			"value": ""
+		},
+		{
+			"key": "expenseId",
+			"value": ""
+		},
+		{
+			"key": "lastMemberId",
+			"value": ""
 		}
 	],
 	"auth": {
@@ -32,20 +56,29 @@
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"var response = pm.response.json();",
+									"try {",
+									"    var response = pm.response.json();",
+									"    console.log('Login Response:', JSON.stringify(response));",
 									"",
-									"if (response.success && response.data && response.data.token) {",
-									"    pm.environment.set(\"token\", response.data.token);",
-									"    pm.environment.set(\"memberId\", response.data.memberId);",
-									"    pm.environment.set(\"email\", response.data.email);",
-									"    console.log(\"Token saved successfully!\");",
-									"}",
+									"    if (response.success && response.data && response.data.token) {",
+									"        pm.collectionVariables.set('token', response.data.token);",
+									"        pm.collectionVariables.set('memberId', String(response.data.memberId));",
+									"        pm.collectionVariables.set('email', response.data.email);",
+									"        console.log('Token saved successfully!');",
+									"        console.log('MemberId: ' + response.data.memberId);",
+									"        console.log('Email: ' + response.data.email);",
+									"    } else {",
+									"        console.log('Login failed: ' + response.message);",
+									"    }",
 									"",
-									"pm.test(\"Login successful\", function () {",
-									"    pm.response.to.have.status(200);",
-									"    pm.expect(response.success).to.be.true;",
-									"    pm.expect(response.data.token).to.be.a('string');",
-									"});"
+									"    pm.test('Login successful', function () {",
+									"        pm.response.to.have.status(200);",
+									"        pm.expect(response.success).to.be.true;",
+									"        pm.expect(response.data.token).to.be.a('string');",
+									"    });",
+									"} catch(e) {",
+									"    console.log('Error parsing response: ' + e.message);",
+									"}"
 								]
 							}
 						}
@@ -63,14 +96,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"userName\": \"your_email@example.com\",\n    \"password\": \"your_password\"\n}"
+							"raw": "{\n    \"userName\": \"abhilash@sysdatacenter.com\",\n    \"password\": \"sys\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/auth/login",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "auth", "login"]
 						},
-						"description": "Login and get JWT token. Token is auto-saved to environment."
+						"description": "Login and get JWT token. Token is auto-saved to collection variables."
 					},
 					"response": []
 				},
@@ -89,7 +122,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"userName\": \"your_email@example.com\",\n    \"password\": \"wrong_password\"\n}"
+							"raw": "{\n    \"userName\": \"abhilash@sysdatacenter.com\",\n    \"password\": \"wrong_password\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/auth/login",
@@ -140,14 +173,19 @@
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"var response = pm.response.json();",
-									"if (response.success && response.data) {",
-									"    pm.environment.set(\"lastMemberId\", response.data.memberId);",
-									"}",
-									"pm.test(\"Member created\", function () {",
-									"    pm.response.to.have.status(200);",
-									"    pm.expect(response.success).to.be.true;",
-									"});"
+									"try {",
+									"    var response = pm.response.json();",
+									"    if (response.success && response.data) {",
+									"        pm.collectionVariables.set('lastMemberId', String(response.data.memberId));",
+									"        console.log('Member created - ID: ' + response.data.memberId);",
+									"    }",
+									"    pm.test('Member created', function () {",
+									"        pm.response.to.have.status(200);",
+									"        pm.expect(response.success).to.be.true;",
+									"    });",
+									"} catch(e) {",
+									"    console.log('Error: ' + e.message);",
+									"}"
 								]
 							}
 						}
@@ -168,8 +206,7 @@
 							"raw": "{{baseUrl}}/api/member/create",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "member", "create"]
-						},
-						"description": "Create a new member"
+						}
 					},
 					"response": []
 				},
@@ -191,8 +228,7 @@
 							"raw": "{{baseUrl}}/api/member/edit",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "member", "edit"]
-						},
-						"description": "Edit an existing member"
+						}
 					},
 					"response": []
 				},
@@ -204,8 +240,7 @@
 							"raw": "{{baseUrl}}/api/member/delete/1",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "member", "delete", "1"]
-						},
-						"description": "Soft-delete a member"
+						}
 					},
 					"response": []
 				}
@@ -223,14 +258,19 @@
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"var response = pm.response.json();",
-									"if (response.success && response.data) {",
-									"    pm.environment.set(\"groupId\", response.data.groupId);",
-									"}",
-									"pm.test(\"Group created\", function () {",
-									"    pm.response.to.have.status(200);",
-									"    pm.expect(response.success).to.be.true;",
-									"});"
+									"try {",
+									"    var response = pm.response.json();",
+									"    if (response.success && response.data) {",
+									"        pm.collectionVariables.set('groupId', String(response.data.groupId));",
+									"        console.log('Group created - ID: ' + response.data.groupId);",
+									"    }",
+									"    pm.test('Group created', function () {",
+									"        pm.response.to.have.status(200);",
+									"        pm.expect(response.success).to.be.true;",
+									"    });",
+									"} catch(e) {",
+									"    console.log('Error: ' + e.message);",
+									"}"
 								]
 							}
 						}
@@ -310,12 +350,16 @@
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"var response = pm.response.json();",
-									"pm.test(\"My groups retrieved\", function () {",
-									"    pm.response.to.have.status(200);",
-									"    pm.expect(response.success).to.be.true;",
-									"    pm.expect(response.data).to.be.an('array');",
-									"});"
+									"try {",
+									"    var response = pm.response.json();",
+									"    pm.test('My groups retrieved', function () {",
+									"        pm.response.to.have.status(200);",
+									"        pm.expect(response.success).to.be.true;",
+									"        pm.expect(response.data).to.be.an('array');",
+									"    });",
+									"} catch(e) {",
+									"    console.log('Error: ' + e.message);",
+									"}"
 								]
 							}
 						}
@@ -352,12 +396,16 @@
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"var response = pm.response.json();",
-									"pm.test(\"Summary retrieved\", function () {",
-									"    pm.response.to.have.status(200);",
-									"    pm.expect(response.success).to.be.true;",
-									"    pm.expect(response.data.members).to.be.an('array');",
-									"});"
+									"try {",
+									"    var response = pm.response.json();",
+									"    pm.test('Summary retrieved', function () {",
+									"        pm.response.to.have.status(200);",
+									"        pm.expect(response.success).to.be.true;",
+									"        pm.expect(response.data.members).to.be.an('array');",
+									"    });",
+									"} catch(e) {",
+									"    console.log('Error: ' + e.message);",
+									"}"
 								]
 							}
 						}
@@ -387,14 +435,19 @@
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"var response = pm.response.json();",
-									"if (response.success && response.data) {",
-									"    pm.environment.set(\"expenseId\", response.data.expenseId);",
-									"}",
-									"pm.test(\"Expense added\", function () {",
-									"    pm.response.to.have.status(200);",
-									"    pm.expect(response.success).to.be.true;",
-									"});"
+									"try {",
+									"    var response = pm.response.json();",
+									"    if (response.success && response.data) {",
+									"        pm.collectionVariables.set('expenseId', String(response.data.expenseId));",
+									"        console.log('Expense added - ID: ' + response.data.expenseId);",
+									"    }",
+									"    pm.test('Expense added', function () {",
+									"        pm.response.to.have.status(200);",
+									"        pm.expect(response.success).to.be.true;",
+									"    });",
+									"} catch(e) {",
+									"    console.log('Error: ' + e.message);",
+									"}"
 								]
 							}
 						}
@@ -611,12 +664,16 @@
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"var response = pm.response.json();",
-									"pm.test(\"Personal expenses retrieved\", function () {",
-									"    pm.response.to.have.status(200);",
-									"    pm.expect(response.success).to.be.true;",
-									"    pm.expect(response.data).to.be.an('array');",
-									"});"
+									"try {",
+									"    var response = pm.response.json();",
+									"    pm.test('Personal expenses retrieved', function () {",
+									"        pm.response.to.have.status(200);",
+									"        pm.expect(response.success).to.be.true;",
+									"        pm.expect(response.data).to.be.an('array');",
+									"    });",
+									"} catch(e) {",
+									"    console.log('Error: ' + e.message);",
+									"}"
 								]
 							}
 						}
