@@ -30,4 +30,5 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./publish/
-          server-dir: /www/fintrack/
+          server-dir: /fintrack/
+          #server-dir: /www/fintrack/
