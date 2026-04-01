@@ -1,0 +1,55 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.35122.118
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FinTrackPortal.Models", "FinTrackPortal.Models\FinTrackPortal.Models.csproj", "{55AA7BDF-7077-4436-8142-8E546DD468BF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FinTrackPortal.API", "FinTrackPortal.API\FinTrackPortal.API.csproj", "{E932486A-9BF7-4B2E-8720-84DDDAEF1021}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FinTrackPortal.Interfaces", "FinTrackPortal.Interfaces\FinTrackPortal.Interfaces.csproj", "{8A19191A-AEBD-4582-9D44-A3F6C249E3CE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FinTrackPortal.Common", "FinTrackPortal.Common\FinTrackPortal.Common.csproj", "{AF9BBB09-8346-4A36-9CF2-1FFA3CC9A49D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FinTrackPortal.Repositories", "FinTrackPortal.Repositories\FinTrackPortal.Repositories.csproj", "{B7CD6D10-D079-4460-836A-572D5F9C1E8B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FinTrackPortal.Services", "FinTrackPortal.Services\FinTrackPortal.Services.csproj", "{E634D956-CFCA-4741-AD98-7C618A99DF07}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{55AA7BDF-7077-4436-8142-8E546DD468BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{55AA7BDF-7077-4436-8142-8E546DD468BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{55AA7BDF-7077-4436-8142-8E546DD468BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{55AA7BDF-7077-4436-8142-8E546DD468BF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E932486A-9BF7-4B2E-8720-84DDDAEF1021}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E932486A-9BF7-4B2E-8720-84DDDAEF1021}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E932486A-9BF7-4B2E-8720-84DDDAEF1021}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E932486A-9BF7-4B2E-8720-84DDDAEF1021}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8A19191A-AEBD-4582-9D44-A3F6C249E3CE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A19191A-AEBD-4582-9D44-A3F6C249E3CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A19191A-AEBD-4582-9D44-A3F6C249E3CE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A19191A-AEBD-4582-9D44-A3F6C249E3CE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AF9BBB09-8346-4A36-9CF2-1FFA3CC9A49D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AF9BBB09-8346-4A36-9CF2-1FFA3CC9A49D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AF9BBB09-8346-4A36-9CF2-1FFA3CC9A49D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AF9BBB09-8346-4A36-9CF2-1FFA3CC9A49D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B7CD6D10-D079-4460-836A-572D5F9C1E8B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B7CD6D10-D079-4460-836A-572D5F9C1E8B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B7CD6D10-D079-4460-836A-572D5F9C1E8B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B7CD6D10-D079-4460-836A-572D5F9C1E8B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E634D956-CFCA-4741-AD98-7C618A99DF07}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E634D956-CFCA-4741-AD98-7C618A99DF07}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E634D956-CFCA-4741-AD98-7C618A99DF07}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E634D956-CFCA-4741-AD98-7C618A99DF07}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F4D592BD-8347-41C5-B01A-7312060D7A19}
+	EndGlobalSection
+EndGlobal
