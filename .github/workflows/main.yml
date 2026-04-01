@@ -6,12 +6,28 @@ jobs:
     name: Build package and deploy to SmarterASP.NET
     runs-on: windows-latest
     steps:
-      - name: build file
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Sync files
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Publish
+        run: dotnet publish --configuration Release --output ./publish
+
+      - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
-          server: ${{ secrets.SERVER_FTP_SERVER }}
+          server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./publish/        # ← only published files
+          server-dir: /www/fintrack/   # ← your remote path on SmarterASP
