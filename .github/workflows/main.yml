@@ -14,6 +14,22 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Create Production config from secrets
+        shell: pwsh
+        run: |
+          $config = @{
+            ConnectionStrings = @{
+              DefaultConnection = "${{ secrets.PROD_CONNECTION_STRING }}"
+            }
+            JwtSettings = @{
+              Key = "${{ secrets.JWT_KEY }}"
+              Issuer = "FinShare"
+              Audience = "FinShareUsers"
+              ExpiryMinutes = 60
+            }
+          }
+          $config | ConvertTo-Json -Depth 3 | Out-File -FilePath ./FinTrackPortal.API/appsettings.Production.json -Encoding utf8
+
       - name: Restore
         run: dotnet restore
 
@@ -22,6 +38,8 @@ jobs:
 
       - name: Publish API project only
         run: dotnet publish ./FinTrackPortal.API/FinTrackPortal.API.csproj --configuration Release --output ./publish
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
 
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -31,4 +49,3 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./publish/
           server-dir: ./
-          #server-dir: /www/fintrack/
