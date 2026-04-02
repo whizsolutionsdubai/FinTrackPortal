@@ -195,8 +195,17 @@ if (string.Equals(app.Configuration["AttachmentStorage:Provider"]?.Trim() ?? "Az
     if (!string.IsNullOrWhiteSpace(configuredPath))
     {
         var localPath = LocalFileStorageService.ResolvePhysicalStoragePath(configuredPath, app.Environment);
-        if (!Directory.Exists(localPath))
-            Directory.CreateDirectory(localPath);
+        try
+        {
+            if (!Directory.Exists(localPath))
+                Directory.CreateDirectory(localPath);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw new InvalidOperationException(
+                $"Cannot create attachment folder '{localPath}'. On shared hosting use a path under your site, e.g. LocalStorage:Path = \"App_Data/attachments\", and ensure the app pool can write there. See appsettings.Production.json.",
+                ex);
+        }
 
         app.UseStaticFiles(new StaticFileOptions
         {

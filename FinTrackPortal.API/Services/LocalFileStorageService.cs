@@ -16,9 +16,20 @@ namespace FinTrackPortal.API.Services
             if (string.IsNullOrWhiteSpace(configuredPath))
                 throw new ArgumentException("Local storage path is empty.", nameof(configuredPath));
 
-            return Path.IsPathRooted(configuredPath)
-                ? configuredPath
-                : Path.GetFullPath(Path.Combine(env.ContentRootPath, configuredPath));
+            var contentRoot = Path.GetFullPath(env.ContentRootPath);
+
+            var resolved = Path.IsPathRooted(configuredPath)
+                ? Path.GetFullPath(configuredPath)
+                : Path.GetFullPath(Path.Combine(contentRoot, configuredPath));
+
+            static string NormDir(string p) =>
+                Path.GetFullPath(p).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            // "." / bad merge on shared hosting can resolve to ContentRoot — creating that folder throws UnauthorizedAccessException.
+            if (string.Equals(NormDir(resolved), NormDir(contentRoot), StringComparison.OrdinalIgnoreCase))
+                resolved = Path.GetFullPath(Path.Combine(contentRoot, "App_Data", "attachments"));
+
+            return resolved;
         }
 
         public LocalFileStorageService(IConfiguration config, IWebHostEnvironment env)

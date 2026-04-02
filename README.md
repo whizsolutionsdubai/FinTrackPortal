@@ -1,6 +1,6 @@
 # FinTrackPortal
 
-A RESTful Web API for tracking shared and personal expenses within groups. Built with ASP.NET Core 8, Dapper, and SQL Server.
+A RESTful Web API for tracking shared and personal expenses within groups. Built with ASP.NET Core 8, Dapper, and SQL Server (FinShare / FinTrack).
 
 ## Tech Stack
 
@@ -11,6 +11,7 @@ A RESTful Web API for tracking shared and personal expenses within groups. Built
 | ORM | Dapper (stored procedures) |
 | Authentication | JWT Bearer tokens |
 | API Docs | Swagger / Swashbuckle |
+| Attachments | **Local disk** or **Azure Blob Storage** (switch via configuration) |
 | CI/CD | GitHub Actions → SmarterASP.NET (FTP) |
 
 ## Architecture
@@ -20,7 +21,7 @@ The solution follows a **layered architecture** with clear separation of concern
 ```
 FinTrackPortal.sln
 │
-├── FinTrackPortal.API            # Controllers, middleware, Program.cs
+├── FinTrackPortal.API            # Controllers, middleware, Program.cs, attachment storage services
 ├── FinTrackPortal.Services       # Business logic (service interfaces + implementations)
 ├── FinTrackPortal.Repositories   # Data access via Dapper + stored procedures
 ├── FinTrackPortal.Interfaces     # Repository contracts
@@ -28,9 +29,11 @@ FinTrackPortal.sln
 └── FinTrackPortal.Common         # Shared wrappers (ApiResponse<T>, OperationResult<T>)
 ```
 
+More detail: [Docs/DeveloperGuide.md](Docs/DeveloperGuide.md).
+
 ## API Endpoints
 
-### Auth (`api/Auth`) -- No token required
+### Auth (`api/Auth`) — no token required
 
 | Method | Route | Description |
 |--------|-------|-------------|
@@ -41,8 +44,8 @@ FinTrackPortal.sln
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| POST | `/api/Group/create` | Create a new group |
-| POST | `/api/Group/add-member` | Add a member to a group |
+| POST | `/api/Group/create` | Create a new group (subscription plan limits may apply) |
+| POST | `/api/Group/add-member` | Add a member to a group (plan limits may apply) |
 | GET | `/api/Group/summary/{groupId}` | Get balance summary (paid, share, net per member) |
 | GET | `/api/Group/my-groups` | List groups for the current user |
 | GET | `/api/Group/{groupId}/members` | List members of a group with roles |
@@ -61,7 +64,7 @@ FinTrackPortal.sln
 | GET | `/api/Expense/accounts/{userId}` | List account labels for a user |
 | POST | `/api/Expense/accounts` | Create a new account label |
 | DELETE | `/api/Expense/accounts/{accountId}` | Soft-delete an account label |
-| POST | `/api/Expense/{expenseId}/attachment` | Upload a receipt/invoice (JPG, PNG, PDF) |
+| POST | `/api/Expense/{expenseId}/attachment` | Upload a receipt/invoice (JPG, PNG, PDF); **form field name: `file`** |
 | GET | `/api/Expense/{expenseId}/attachments` | List attachments for an expense |
 | DELETE | `/api/Expense/attachment/{attachmentId}` | Soft-delete an attachment |
 
@@ -77,7 +80,7 @@ FinTrackPortal.sln
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| GET | `/api/Subscription/plans` | List available plans (public) |
+| GET | `/api/Subscription/plans` | List available plans (**public**, no JWT) |
 | GET | `/api/Subscription/my` | Get current plan for logged-in user |
 | GET | `/api/Subscription/user/{memberId}` | Get current plan for a specific member |
 | POST | `/api/Subscription/activate` | Activate a plan after payment |
@@ -91,130 +94,118 @@ FinTrackPortal.sln
 | PUT | `/api/Member/edit` | Edit member name |
 | DELETE | `/api/Member/delete/{memberId}` | Soft-delete a member |
 
-> All endpoints except Auth and Subscription/plans require a valid JWT Bearer token.
+> All endpoints except **Auth**, **GET /api/Subscription/plans**, and **Swagger** require a valid JWT Bearer token.
+
+## Configuration
+
+### Base file: `FinTrackPortal.API/appsettings.json`
+
+| Section | Purpose |
+|---------|---------|
+| `ConnectionStrings:DefaultConnection` | SQL Server connection string |
+| `JwtSettings` | Signing key (long random string), Issuer, Audience, token lifetime |
+| `AttachmentStorage:Provider` | `Azure` (default in repo) or `Local` |
+| `AzureStorage` | `ConnectionString`, `ContainerName` — used when `Provider` is `Azure` |
+| `LocalStorage` | `Path` (folder on disk or relative to app root), `PublicBaseUrl` (public URL prefix for files, e.g. `https://your-site/attachments`) |
+
+When **`AttachmentStorage:Provider`** is **`Local`**, the API saves files under `LocalStorage:Path`, serves them at `/attachments`, and stores URLs in `ExpenseAttachment`. When **`Azure`**, files go to Blob Storage.
+
+### Production: `appsettings.Production.json`
+
+This file is **gitignored** so secrets are not committed. Use the committed template:
+
+- **`FinTrackPortal.API/appsettings.Production.example.json`** — copy to `appsettings.Production.json` and replace placeholders.
+
+Set hosting environment to **Production** (`ASPNETCORE_ENVIRONMENT=Production` on the server).
+
+**SmarterASP / shared hosting tips**
+
+- Prefer a **writable folder** under your application root, e.g. relative `Attachments`, or an absolute path such as `h:\root\home\<account>\www\<app>\Attachments`.
+- **`LocalStorage:PublicBaseUrl`** must match how users reach your API over HTTPS, e.g. `https://your-domain.com/attachments` (no trailing slash).
+- Do **not** point `LocalStorage:Path` at the site root only (`.`); the app normalizes that to `App_Data/attachments` or use an explicit subfolder.
+
+### Secrets on GitHub / CI
+
+Store production connection strings and JWT keys in **GitHub Actions secrets** or your host’s **application settings** / environment variables rather than in committed JSON.
 
 ## Database Schema
 
-The full SQL Server schema (tables, constraints, and stored procedures) is included at:
+Full script (fresh database + sample data + stored procedures):
 
 ```
 Database/FinTrackDB_Schema.sql
 ```
 
-### Tables
+Requires **SQL Server 2016+** (uses `DROP PROCEDURE IF EXISTS` in the script). Run the **entire** script for a new environment; it drops and recreates `FinTrackDB` by default — see script header warnings.
+
+### Tables (high level)
 
 | Table | Description |
 |-------|-------------|
-| `Member` | Base member profile |
+| `Member` | Member profile |
 | `Users` | Login credentials linked to a Member |
 | `Groups` | Expense-sharing groups |
-| `GroupMember` | Many-to-many link between groups and members (with role) |
-| `Expense` | Group or personal expense records (with optional AccountId, CostCenterId) |
+| `GroupMember` | Groups ↔ members (with role) |
+| `Expense` | Group or personal expenses; optional `AccountId`, `CostCenterId` |
 | `ExpenseSplit` | Per-member share of each expense |
-| `Settlement` | Debt settlements between members |
-| `SubscriptionPlan` | Plan definitions (Free / Premium) with limits and pricing |
-| `UserSubscription` | Each member's active subscription and billing cycle |
-| `ExpenseAccount` | User-defined account labels (Personal, Flat, Customer, etc.) |
-| `ExpenseAttachment` | Metadata for receipt/invoice files stored in Azure Blob Storage |
-| `Organisation` | Corporate/B2B tier (foundation table — used later) |
-| `CostCenter` | Cost centers within an Organisation (foundation — used later) |
+| `Settlement` | Settlements between members |
+| `SubscriptionPlan` | Plan definitions (limits, pricing) |
+| `UserSubscription` | Member subscriptions (`MemberId`) |
+| `ExpenseAccount` | User-defined account labels |
+| `ExpenseAttachment` | Metadata for files (URL points to local `/attachments` or Azure blob) |
+| `Organisation` / `CostCenter` | Corporate foundation (reserved for future use) |
 
-### Stored Procedures
-
-| Procedure | Purpose |
-|-----------|---------|
-| `sp_ValidateUser` | Authenticate by email + password hash |
-| `sp_GetExpiry` | Check user account expiry |
-| `sp_RegisterUser` | Register new user (Member + User in one transaction) |
-| `sp_CreateMember` / `sp_EditMember` / `sp_DeleteMember` | Member CRUD |
-| `sp_CreateGroup` | Create group + auto-add creator as Admin |
-| `sp_AddMemberToGroup` | Add member to a group |
-| `sp_GetMyGroups` / `sp_GetGroupMembers` / `sp_GetGroupSummary` | Group queries |
-| `sp_IsMemberOfGroup` | Membership check |
-| `sp_AddExpense` / `sp_UpdateExpense` / `sp_DeleteExpense` | Expense CRUD (now with optional @AccountId) |
-| `sp_AddExpenseSplit` / `sp_DeleteExpenseSplits` | Manage expense splits |
-| `sp_AddPersonalExpense` / `sp_GetPersonalExpenses` | Personal expense tracking |
-| `sp_GetExpensesByGroup` | List group expenses |
-| `sp_MoveExpense` | Move an expense to a different group |
-| `sp_RecordSettlement` | Record a payment between members |
-| `sp_GetSettlementsByGroup` | Get settlement history for a group |
-| `sp_GetSubscriptionPlans` | List active subscription plans |
-| `sp_GetUserSubscription` | Get member's current subscription |
-| `sp_CreateUserSubscription` | Activate a subscription after payment |
-| `sp_CancelUserSubscription` | Deactivate a member's subscription |
-| `sp_CheckUserLimit` | Check group/member limits against plan |
-| `sp_GetUserAccounts` / `sp_CreateAccount` / `sp_DeleteAccount` | Account label CRUD |
-| `sp_AddExpenseAttachment` / `sp_GetExpenseAttachments` / `sp_DeleteExpenseAttachment` | Attachment CRUD |
+Stored procedures are documented inline in `FinTrackDB_Schema.sql` and summarized in the Developer Guide.
 
 ## Getting Started
 
 ### Prerequisites
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- SQL Server 2019+ (local or remote)
+- SQL Server (local, Azure SQL, or host-provided SQL)
 
-### Setup
+### Local setup
 
-1. **Clone the repository**
+1. **Clone**
 
 ```bash
 git clone https://github.com/<your-username>/FinTrackPortal.git
 cd FinTrackPortal
 ```
 
-2. **Create the database** by running the schema script against your SQL Server:
+2. **Database** — execute `Database/FinTrackDB_Schema.sql` in SSMS or:
 
 ```bash
 sqlcmd -S localhost -i Database/FinTrackDB_Schema.sql
 ```
 
-   Or open `Database/FinTrackDB_Schema.sql` in SSMS and execute it.
+3. **Configure** `FinTrackPortal.API/appsettings.json` (and `appsettings.Development.json` if used) with your SQL connection string, JWT key, and attachment mode (`Local` or `Azure`).
 
-3. **Configure the database connection and JWT settings** in `FinTrackPortal.API/appsettings.json`:
+4. **Run**
 
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "<your-sql-server-connection-string>"
-  },
-  "JwtSettings": {
-    "Key": "<your-secret-key>",
-    "Issuer": "<issuer>",
-    "Audience": "<audience>",
-    "ExpiryMinutes": 60
-  }
-}
+```bash
+dotnet restore
+dotnet build
+dotnet run --project FinTrackPortal.API
 ```
 
-4. **Build and run**
-   ```bash
-   dotnet restore
-   dotnet build
-   dotnet run --project FinTrackPortal.API
-   ```
-
-5. **Open Swagger UI** at `https://localhost:<port>/swagger` to explore and test the API.
+5. Open **Swagger** at `https://localhost:<port>/swagger`.
 
 ### Postman
 
-Import from the repository root:
+Files in the **repository root**:
 
-- `FinTrackPortal.postman_collection.json` — all API modules
-- `FinTrackPortal.postman_environment_Local.json` — `baseUrl` for local dev (default `https://localhost:7124`)
-- `FinTrackPortal.postman_environment_Production.json` — production `baseUrl`
+| File | Purpose |
+|------|---------|
+| `FinTrackPortal.postman_collection.json` | All modules + tests |
+| `FinTrackPortal.postman_environment_Local.json` | `baseUrl` for local HTTPS |
+| `FinTrackPortal.postman_environment_Production.json` | Production `baseUrl` template |
 
-In each environment, set **loginEmail** and **loginPassword**, select the environment in Postman, then run **Auth → Login** (saves the JWT to collection variables).
+Import the collection and one environment, set **`loginEmail`** / **`loginPassword`**, then run **Auth → Login** to save the JWT.
 
 ## CI/CD
 
-The project uses **GitHub Actions** to automatically build and deploy on every push:
-
-1. Restores dependencies
-2. Builds in Release configuration
-3. Publishes the API project
-4. Deploys to SmarterASP.NET via FTP
-
-Workflow file: `.github/workflows/main.yml`
+GitHub Actions (`.github/workflows/main.yml`): restore → build (Release) → publish → deploy to SmarterASP via FTP (on push).
 
 ## License
 

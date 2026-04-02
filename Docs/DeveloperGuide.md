@@ -1,347 +1,238 @@
 # FinTrackPortal — Developer Guide
 
-> This guide helps any developer understand, navigate, and extend the codebase.
+> How the codebase is organized, how to extend it, and where configuration lives. For a concise overview and endpoint list, see [README.md](../README.md).
 
 ---
 
 ## 1. Architecture Overview
 
-![Architecture Wireframe](architecture-wireframe.png)
-
 ```
-Client (Swagger / Postman / App)
+Client (Swagger / Postman / Mobile / Web)
         │
         ▼
-┌─────────────────────────────────────────────────┐
-│  API Layer  —  ASP.NET Core 8 Web API           │
-│  JWT Auth Middleware                              │
-│  Controllers: Auth, Group, Expense, Settlement,  │
-│               Member                             │
-└──────────────────────┬──────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────┐
-│  Business Logic Layer  —  Services               │
-│  UserService, GroupService, ExpenseService,       │
-│  SettlementService, MemberService                │
-│  (all return OperationResult<T>)                 │
-└──────────────────────┬──────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────┐
-│  Data Access Layer  —  Repositories (Dapper)     │
-│  SqlConnection + Stored Procedures               │
-│  No inline SQL — every query goes through an SP  │
-└──────────────────────┬──────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────┐
-│  Database  —  SQL Server (FinTrackDB)            │
-│  7 Tables · 22 Stored Procedures                 │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  API Layer — ASP.NET Core 8 Web API                         │
+│  JWT middleware · Static files (/attachments when Local)     │
+│  Controllers: Auth, Group, Expense, Settlement, Member,   │
+│               Subscription                                   │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Services — IUserService, IGroupService, IExpenseService,   │
+│  ISettlementService, IMemberService, ISubscriptionService   │
+│  (return OperationResult<T>)                                 │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Repositories — Dapper + stored procedures only             │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│  SQL Server — FinTrackDB (see Database/FinTrackDB_Schema.sql) │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Flow for every request
+**API-only services (no separate project):** `IAttachmentStorageService` with `BlobStorageService` (Azure) or `LocalFileStorageService` (disk), registered from `AttachmentStorage:Provider` in `Program.cs`.
+
+### Request flow
 
 ```
 HTTP Request
-  → Controller (validates input, extracts JWT claims)
-    → Service (business rules, orchestration)
-      → Repository (Dapper calls stored procedure)
-        → SQL Server (executes SP, returns data)
+  → Controller (validation, JWT claims)
+    → Service
+      → Repository (Dapper + SP)
+        → SQL Server
       ← OperationResult<T>
     ← OperationResult<T>
-  ← ApiResponse<T> (JSON envelope)
+  ← ApiResponse<T> (JSON)
 ```
 
 ---
 
-## 2. Project Structure
+## 2. Project structure
 
-| Project | Purpose |
-|---------|---------|
-| `FinTrackPortal.API` | Controllers, Program.cs, JWT middleware, Extensions |
-| `FinTrackPortal.Services` | Service interfaces + implementations (business logic) |
-| `FinTrackPortal.Repositories` | Dapper data-access implementations |
-| `FinTrackPortal.Interfaces` | Repository contracts (for DI/testability) |
-| `FinTrackPortal.Models` | DTOs, request/response models, entity POCOs |
-| `FinTrackPortal.Common` | `ApiResponse<T>` and `OperationResult<T>` wrappers |
-| `Database/` | Full SQL schema script (tables + stored procedures) |
-| `Docs/` | This guide + architecture wireframe |
-
----
-
-## 3. How to Read the XML Documentation
-
-Every class, interface, and method in the codebase has `/// <summary>` XML doc comments. Here's how to use them:
-
-### 3.1 In Your IDE (Visual Studio / Cursor / VS Code)
-
-Hover over any class or method name — the XML summary appears as a tooltip:
-
-```csharp
-// Hover over IUserRepository.RegisterAsync to see:
-// "Register a new user via sp_RegisterUser.
-//  Creates a Member row and a User row inside a single SQL transaction.
-//  Returns the new MemberId."
-```
-
-Press **F12** (Go to Definition) on any service/repository to jump to the interface and read what each method does.
-
-### 3.2 In Swagger UI
-
-After building, open `/swagger` in the browser. You'll see:
-
-- **Endpoint descriptions** pulled from controller `<summary>` tags
-- **Model descriptions** pulled from request/response class `<summary>` tags
-- **Property descriptions** from data annotations
-
-This works because we enabled XML doc generation in every `.csproj`:
-
-```xml
-<GenerateDocumentationFile>true</GenerateDocumentationFile>
-<NoWarn>$(NoWarn);1591</NoWarn>
-```
-
-And configured Swagger to load them in `Program.cs`:
-
-```csharp
-var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-if (File.Exists(xmlPath)) c.IncludeXmlComments(xmlPath);
-```
-
-### 3.3 The Generated XML Files
-
-After building, XML files appear in the `bin/Debug/net8.0/` folder:
-
-```
-FinTrackPortal.API.xml
-FinTrackPortal.Models.xml
-FinTrackPortal.Common.xml
-FinTrackPortal.Interfaces.xml
-FinTrackPortal.Services.xml
-FinTrackPortal.Repositories.xml
-```
-
-These are auto-generated on every build. **Do not** commit them — they're in the `bin/` folder which is already in `.gitignore`.
+| Path | Purpose |
+|------|---------|
+| `FinTrackPortal.API/` | Controllers, `Program.cs`, `Services/` (`BlobStorageService`, `LocalFileStorageService`, `IAttachmentStorageService`) |
+| `FinTrackPortal.Services/` | Service interfaces + implementations |
+| `FinTrackPortal.Repositories/` | Dapper repositories |
+| `FinTrackPortal.Interfaces/` | Repository interfaces |
+| `FinTrackPortal.Models/` | Request/response DTOs |
+| `FinTrackPortal.Common/` | `ApiResponse<T>`, `OperationResult<T>` |
+| `Database/FinTrackDB_Schema.sql` | Full database script |
+| `Docs/` | This guide + wireframe |
+| `FinTrackPortal.postman_collection.json` | Postman (repo root) |
+| `appsettings.Production.example.json` | Production config template (API project) |
 
 ---
 
-## 4. Key Patterns to Follow
+## 3. Configuration (development & production)
 
-### 4.1 Adding a New Feature (step-by-step)
+| File | Role |
+|------|------|
+| `appsettings.json` | Defaults; safe to commit without secrets |
+| `appsettings.Development.json` | Local overrides (often gitignored) |
+| `appsettings.Production.json` | Production overrides (**gitignored**) |
+| `appsettings.Production.example.json` | **Committed** template — copy to `appsettings.Production.json` on the server |
 
-Follow this exact order when adding any new module:
+### Attachment storage
 
-| Step | What to do | Where |
-|------|-----------|-------|
-| 1 | Create the **stored procedure(s)** | `Database/FinTrackDB_Schema.sql` + run in SSMS |
-| 2 | Create **request/response models** | `FinTrackPortal.Models/` |
-| 3 | Add method(s) to the **repository interface** | `FinTrackPortal.Interfaces/` |
-| 4 | Implement in the **repository** (Dapper + SP) | `FinTrackPortal.Repositories/` |
-| 5 | Add method(s) to the **service interface** | `FinTrackPortal.Services/IXxxService.cs` |
-| 6 | Implement in the **service** | `FinTrackPortal.Services/XxxService.cs` |
-| 7 | Create the **controller** with endpoints | `FinTrackPortal.API/Controllers/` |
-| 8 | Register **DI** in Program.cs | `builder.Services.AddScoped<>()` |
-| 9 | Add **XML doc comments** to all new code | All files above |
+| `AttachmentStorage:Provider` | Implementation | Required settings |
+|-----------------------------|----------------|-------------------|
+| `Azure` | `BlobStorageService` | `AzureStorage:ConnectionString`, `ContainerName` |
+| `Local` | `LocalFileStorageService` | `LocalStorage:Path`, `LocalStorage:PublicBaseUrl` |
 
-### 4.2 Repository Pattern (Dapper)
+For **Local**, `Program.cs` registers static files at `/attachments` mapped to the resolved physical folder. Upload endpoint expects multipart form field **`file`**.
 
-Every repository follows the same structure:
+`LocalStorage:Path` can be relative to `IWebHostEnvironment.ContentRootPath` or an absolute Windows path (common on SmarterASP).
 
-```csharp
-public class XxxRepository : IXxxRepository
-{
-    private readonly IConfiguration _config;
-    private readonly ILogger<XxxRepository> _logger;
+### JWT
 
-    public XxxRepository(IConfiguration config, ILogger<XxxRepository> logger)
-    {
-        _config = config;
-        _logger = logger;
-    }
-
-    // Creates a new SqlConnection each time (disposed after use)
-    private IDbConnection Connection =>
-        new SqlConnection(_config.GetConnectionString("DefaultConnection"));
-}
-```
-
-**Three query patterns:**
-
-```csharp
-// 1. Return a single value (e.g. new ID)
-var id = await conn.QuerySingleAsync<long>(
-    "sp_YourProcedure",
-    new { Param1 = value1 },
-    commandType: CommandType.StoredProcedure);
-return OperationResult<long>.Success(id);
-
-// 2. Return a list
-var list = (await conn.QueryAsync<YourModel>(
-    "sp_YourProcedure",
-    new { Param1 = value1 },
-    commandType: CommandType.StoredProcedure)).ToList();
-return OperationResult<List<YourModel>>.Success(list);
-
-// 3. Execute (no return value)
-await conn.ExecuteAsync(
-    "sp_YourProcedure",
-    new { Param1 = value1 },
-    commandType: CommandType.StoredProcedure);
-return OperationResult<bool>.Success(true);
-```
-
-**Multi-step with transaction:**
-
-```csharp
-using var conn = Connection;
-conn.Open();
-using var tx = conn.BeginTransaction();
-
-await conn.ExecuteAsync("sp_Step1", new { ... },
-    transaction: tx, commandType: CommandType.StoredProcedure);
-await conn.ExecuteAsync("sp_Step2", new { ... },
-    transaction: tx, commandType: CommandType.StoredProcedure);
-
-tx.Commit();
-```
-
-**Error handling — every method:**
-
-```csharp
-catch (Exception ex)
-{
-    _logger.LogError(ex, "Error doing X for {Id}", id);
-    return OperationResult<T>.Failure(ex.Message);
-}
-```
-
-### 4.3 Controller Pattern
-
-```csharp
-// Validation
-if (!ModelState.IsValid)
-{
-    var errors = ModelState.Values
-        .SelectMany(v => v.Errors)
-        .Select(e => e.ErrorMessage).ToList();
-    return BadRequest(ApiResponse<object?>.ErrorResponse("Validation failed", errors));
-}
-
-// Get caller identity from JWT
-var memberId = User.GetMemberId();
-var email = User.GetEmail();
-
-// Call service
-var result = await _service.DoSomethingAsync(...);
-
-// Return standardised response
-if (!result.IsSuccess)
-    return BadRequest(ApiResponse<object?>.ErrorResponse("Failed", result.ErrorMessage!));
-
-return Ok(ApiResponse<object>.SuccessResponse(new { id = result.Data }, "Done"));
-```
-
-### 4.4 Response Envelope
-
-Every endpoint returns this JSON shape:
-
-```json
-{
-  "success": true,
-  "message": "Human-readable message",
-  "data": { },
-  "errors": null
-}
-```
+Loaded from `JwtSettings` in `Program.cs`. Signing key must be non-empty; use a long random secret in production.
 
 ---
 
-## 5. Database Conventions
+## 4. XML documentation & Swagger
 
-- **Soft deletes**: All tables use `IsActive` (bit). Delete = set to 0, never physically remove rows.
-- **Audit columns**: Every table has `CreatedBy`, `ModifiedBy`, `CreatedDate`, `ModifiedDate`.
-- **Stored procedures**: Named `sp_VerbNoun` (e.g. `sp_CreateGroup`, `sp_GetExpensesByGroup`).
-- **No inline SQL**: Every query goes through a named stored procedure.
-- **Transactions**: Multi-step operations use either SQL-level (`BEGIN TRANSACTION` inside the SP) or C#-level (`conn.BeginTransaction()`) transactions.
+XML comments are generated per project (`GenerateDocumentationFile`). Swagger loads `FinTrackPortal.API.xml` and `FinTrackPortal.Models.xml` from the output directory.
+
+Do not commit `bin/**` XML files; they are build artifacts.
 
 ---
 
-## 6. Authentication
+## 5. Adding a feature (checklist)
 
-- **JWT Bearer tokens** with claims: `Email` + `MemberId`
-- Tokens are issued by `AuthController.Login`
-- Settings come from `appsettings.json` → `JwtSettings` section
-- All controllers except `AuthController` have `[Authorize]`
-- Claims are extracted via `ClaimsPrincipalExtensions.GetMemberId()` and `.GetEmail()`
+| Step | Action |
+|------|--------|
+| 1 | Add or alter tables / SPs in `Database/FinTrackDB_Schema.sql`, deploy to your database |
+| 2 | Add models in `FinTrackPortal.Models` |
+| 3 | Extend repository interface + implementation |
+| 4 | Extend service interface + implementation |
+| 5 | Add controller actions + `[Authorize]` / `[AllowAnonymous]` as needed |
+| 6 | Register DI in `Program.cs` |
+| 7 | XML-doc new public APIs |
 
 ---
 
-## 7. Quick Reference — All API Endpoints
+## 6. Repository pattern (Dapper)
 
-### Auth (no token required)
+- One `SqlConnection` per operation (or explicit transaction when needed).
+- `CommandType.StoredProcedure` only — no ad hoc SQL in repositories.
+- Wrap failures in `OperationResult<T>.Failure(message)` and log exceptions.
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/api/Auth/login` | Login → returns JWT |
-| POST | `/api/Auth/register` | Register → creates Member + User |
+---
+
+## 7. Controller pattern
+
+- Validate `ModelState`, return `ApiResponse` errors as lists when needed.
+- Use `User.GetMemberId()` and `User.GetEmail()` from `ClaimsPrincipalExtensions`.
+- Return `ApiResponse<T>` for success and consistent error shape.
+
+---
+
+## 8. Database conventions
+
+- Soft deletes: `IsActive = 0` where applicable.
+- Audit fields: `CreatedBy`, `ModifiedBy`, dates.
+- Subscriptions and group limits: `GroupController` calls `ISubscriptionService.IsActionAllowedAsync` before create group / add member.
+
+---
+
+## 9. Authentication
+
+- JWT with claims: email + `MemberId`.
+- **No JWT:** `AuthController` (login/register), `GET /api/Subscription/plans`, Swagger.
+- `SubscriptionController` is `[Authorize]` except `[AllowAnonymous]` on `plans`.
+
+---
+
+## 10. API quick reference
+
+### Auth (no token)
+
+| Method | Route |
+|--------|-------|
+| POST | `/api/Auth/login` |
+| POST | `/api/Auth/register` |
+
+### Subscription
+
+| Method | Route |
+|--------|-------|
+| GET | `/api/Subscription/plans` (public) |
+| GET | `/api/Subscription/my` |
+| GET | `/api/Subscription/user/{memberId}` |
+| POST | `/api/Subscription/activate` |
+| POST | `/api/Subscription/cancel` |
 
 ### Group
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/api/Group/create` | Create group (auto Admin) |
-| POST | `/api/Group/add-member` | Add member to group |
-| GET | `/api/Group/my-groups` | List my groups |
-| GET | `/api/Group/summary/{groupId}` | Balance summary |
-| GET | `/api/Group/{groupId}/members` | List group members |
+| Method | Route |
+|--------|-------|
+| POST | `/api/Group/create` |
+| POST | `/api/Group/add-member` |
+| GET | `/api/Group/my-groups` |
+| GET | `/api/Group/summary/{groupId}` |
+| GET | `/api/Group/{groupId}/members` |
 
 ### Expense
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/api/Expense/add` | Add group expense |
-| PUT | `/api/Expense/edit` | Edit group expense |
-| DELETE | `/api/Expense/delete/{id}` | Soft-delete expense |
-| GET | `/api/Expense/group/{groupId}` | List group expenses |
-| POST | `/api/Expense/personal` | Add personal expense |
-| GET | `/api/Expense/personal` | List personal expenses |
+| Method | Route |
+|--------|-------|
+| POST | `/api/Expense/add` |
+| PUT | `/api/Expense/edit` |
+| DELETE | `/api/Expense/delete/{expenseId}` |
+| GET | `/api/Expense/group/{groupId}` |
+| POST / GET | `/api/Expense/personal` |
+| POST | `/api/Expense/move` |
+| GET | `/api/Expense/accounts/{userId}` |
+| POST | `/api/Expense/accounts` |
+| DELETE | `/api/Expense/accounts/{accountId}` |
+| POST | `/api/Expense/{expenseId}/attachment` |
+| GET | `/api/Expense/{expenseId}/attachments` |
+| DELETE | `/api/Expense/attachment/{attachmentId}` |
 
 ### Settlement
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/api/Settlement/record` | Record payment |
-| GET | `/api/Settlement/group/{groupId}` | Payment history |
-| GET | `/api/Settlement/suggested/{groupId}` | Suggested payments |
+| Method | Route |
+|--------|-------|
+| POST | `/api/Settlement/record` |
+| GET | `/api/Settlement/group/{groupId}` |
+| GET | `/api/Settlement/suggested/{groupId}` |
 
 ### Member
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/api/Member/create` | Create member |
-| PUT | `/api/Member/edit` | Edit member name |
-| DELETE | `/api/Member/delete/{id}` | Soft-delete member |
+| Method | Route |
+|--------|-------|
+| POST | `/api/Member/create` |
+| PUT | `/api/Member/edit` |
+| DELETE | `/api/Member/delete/{memberId}` |
 
 ---
 
-## 8. CI/CD
+## 11. CI/CD
 
-GitHub Actions workflow (`.github/workflows/main.yml`):
-
-1. Checkout → Setup .NET 8 → Restore → Build (Release) → Publish
-2. Deploy to SmarterASP.NET via FTP
-
-Triggers on every push to any branch.
+`.github/workflows/main.yml`: checkout, .NET 8, restore, build Release, publish `FinTrackPortal.API`, FTP deploy to SmarterASP (adjust secrets in repo settings).
 
 ---
 
-## 9. Pending Items
+## 12. Known improvements
 
-| Item | Status | Notes |
-|------|--------|-------|
-| Password hashing (BCrypt) | Pending | `HashPassword()` currently returns plain text. Replace with `BCrypt.Net.BCrypt.HashPassword()` before production. See section 5.1 of the FinShare Developer Reference. |
-| Email uniqueness | Done | `sp_RegisterUser` blocks duplicate emails |
-| Settlement suggested | Done | Calculated in C# — greedy debtor/creditor algorithm |
+| Item | Notes |
+|------|--------|
+| Password hashing | Ensure production uses strong hashing (e.g. BCrypt) for `PasswordHash`; align with `sp_ValidateUser` expectations. |
+| Secrets | Keep production connection strings and JWT keys out of git; use host panel or GitHub Secrets. |
+
+---
+
+## 13. Related files on GitHub
+
+| Document / file | Description |
+|-----------------|-------------|
+| [README.md](../README.md) | Overview, endpoints, configuration summary, Postman |
+| `Database/FinTrackDB_Schema.sql` | Authoritative schema |
+| `appsettings.Production.example.json` | Production template |
+| `FinTrackPortal.postman_collection.json` | API tests |
