@@ -1,7 +1,7 @@
 {
 	"info": {
 		"name": "FinTrackPortal API",
-		"description": "FinTrack WHIZ SOLUTIONS - Complete API Collection\n\nSetup:\n1. Import this collection\n2. Import environment (Dev or Production)\n3. Select environment from top-right dropdown\n4. Login first - token is auto-saved\n5. All other APIs use the token automatically",
+		"description": "FinTrack / FinShare — all API modules.\n\n1. Import **FinTrackPortal.postman_environment_Local.json** or **FinTrackPortal.postman_environment_Production.json**.\n2. Select that environment (top right).\n3. Set **loginEmail** and **loginPassword** in the environment.\n4. Run **Auth → Login** once (saves **token** and **memberId** to collection variables).\n5. Set **groupId** / **expenseId** / **secondMemberId** in collection variables if needed.\n\n**Upload attachment:** form-data field name must be **file** (choose jpg/png/pdf).",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -32,6 +32,22 @@
 		{
 			"key": "lastMemberId",
 			"value": ""
+		},
+		{
+			"key": "secondMemberId",
+			"value": "2"
+		},
+		{
+			"key": "accountId",
+			"value": "1"
+		},
+		{
+			"key": "attachmentId",
+			"value": "1"
+		},
+		{
+			"key": "planId",
+			"value": "2"
 		}
 	],
 	"auth": {
@@ -56,28 +72,11 @@
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"try {",
-									"    var response = pm.response.json();",
-									"    console.log('Login Response:', JSON.stringify(response));",
-									"",
-									"    if (response.success && response.data && response.data.token) {",
-									"        pm.collectionVariables.set('token', response.data.token);",
-									"        pm.collectionVariables.set('memberId', String(response.data.memberId));",
-									"        pm.collectionVariables.set('email', response.data.email);",
-									"        console.log('Token saved successfully!');",
-									"        console.log('MemberId: ' + response.data.memberId);",
-									"        console.log('Email: ' + response.data.email);",
-									"    } else {",
-									"        console.log('Login failed: ' + response.message);",
-									"    }",
-									"",
-									"    pm.test('Login successful', function () {",
-									"        pm.response.to.have.status(200);",
-									"        pm.expect(response.success).to.be.true;",
-									"        pm.expect(response.data.token).to.be.a('string');",
-									"    });",
-									"} catch(e) {",
-									"    console.log('Error parsing response: ' + e.message);",
+									"var j = pm.response.json();",
+									"if (j.success && j.data && j.data.token) {",
+									"    pm.collectionVariables.set('token', j.data.token);",
+									"    pm.collectionVariables.set('memberId', String(j.data.memberId));",
+									"    if (j.data.email) pm.collectionVariables.set('email', j.data.email);",
 									"}"
 								]
 							}
@@ -96,14 +95,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"userName\": \"abhilash@sysdatacenter.com\",\n    \"password\": \"sys\"\n}"
+							"raw": "{\n    \"userName\": \"{{loginEmail}}\",\n    \"password\": \"{{loginPassword}}\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/auth/login",
+							"raw": "{{baseUrl}}/api/Auth/login",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "auth", "login"]
+							"path": ["api", "Auth", "login"]
 						},
-						"description": "Login and get JWT token. Token is auto-saved to collection variables."
+						"description": "Login — token and memberId saved to collection variables."
 					},
 					"response": []
 				},
@@ -125,9 +124,9 @@
 							"raw": "{\n    \"userName\": \"abhilash@sysdatacenter.com\",\n    \"password\": \"wrong_password\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/auth/login",
+							"raw": "{{baseUrl}}/api/Auth/login",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "auth", "login"]
+							"path": ["api", "Auth", "login"]
 						},
 						"description": "Test: Should return 401 with error message"
 					},
@@ -151,16 +150,107 @@
 							"raw": "{\n    \"userName\": \"\",\n    \"password\": \"\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/auth/login",
+							"raw": "{{baseUrl}}/api/Auth/login",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "auth", "login"]
+							"path": ["api", "Auth", "login"]
 						},
 						"description": "Test: Should return 400 with validation errors"
+					},
+					"response": []
+				},
+				{
+					"name": "Register",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"memberName\": \"API Test User\",\n    \"userName\": \"apitest@example.com\",\n    \"emailAddress\": \"apitest@example.com\",\n    \"mobile\": \"0500000000\",\n    \"password\": \"Password1!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/Auth/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Auth", "register"]
+						},
+						"description": "Creates Member + User. Change email if already registered."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Subscription Plans (public)",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/Subscription/plans",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Subscription", "plans"]
+						}
 					},
 					"response": []
 				}
 			],
 			"description": "Authentication endpoints"
+		},
+		{
+			"name": "Subscription",
+			"item": [
+				{
+					"name": "My subscription",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/Subscription/my",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Subscription", "my"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "User subscription by memberId",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/Subscription/user/{{memberId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Subscription", "user", "{{memberId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Activate subscription",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"memberId\": {{memberId}},\n    \"planId\": {{planId}},\n    \"billingCycle\": \"monthly\",\n    \"paymentRef\": \"postman\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/Subscription/activate",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Subscription", "activate"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel my subscription",
+					"request": {
+						"method": "POST",
+						"url": {
+							"raw": "{{baseUrl}}/api/Subscription/cancel",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Subscription", "cancel"]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "Requires JWT (use Auth - Login first)"
 		},
 		{
 			"name": "Member",
@@ -203,9 +293,9 @@
 							"raw": "{\n    \"memberName\": \"Joseph\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/member/create",
+							"raw": "{{baseUrl}}/api/Member/create",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "member", "create"]
+							"path": ["api", "Member", "create"]
 						}
 					},
 					"response": []
@@ -225,9 +315,9 @@
 							"raw": "{\n    \"memberId\": 1,\n    \"memberName\": \"Joseph Updated\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/member/edit",
+							"raw": "{{baseUrl}}/api/Member/edit",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "member", "edit"]
+							"path": ["api", "Member", "edit"]
 						}
 					},
 					"response": []
@@ -237,9 +327,9 @@
 					"request": {
 						"method": "DELETE",
 						"url": {
-							"raw": "{{baseUrl}}/api/member/delete/1",
+							"raw": "{{baseUrl}}/api/Member/delete/1",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "member", "delete", "1"]
+							"path": ["api", "Member", "delete", "1"]
 						}
 					},
 					"response": []
@@ -288,9 +378,9 @@
 							"raw": "{\n    \"groupName\": \"Dubai Friends\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/group/create",
+							"raw": "{{baseUrl}}/api/Group/create",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "group", "create"]
+							"path": ["api", "Group", "create"]
 						},
 						"description": "Create a new group. GroupCode is auto-generated. Creator becomes Admin."
 					},
@@ -308,12 +398,12 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"groupId\": {{groupId}},\n    \"memberId\": 2,\n    \"role\": \"Member\"\n}"
+							"raw": "{\n    \"groupId\": {{groupId}},\n    \"memberId\": {{secondMemberId}},\n    \"role\": \"Member\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/group/add-member",
+							"raw": "{{baseUrl}}/api/Group/add-member",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "group", "add-member"]
+							"path": ["api", "Group", "add-member"]
 						},
 						"description": "Add a member to group. Role is optional (defaults to 'Member')."
 					},
@@ -331,12 +421,12 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"groupId\": {{groupId}},\n    \"memberId\": 2\n}"
+							"raw": "{\n    \"groupId\": {{groupId}},\n    \"memberId\": {{secondMemberId}}\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/group/add-member",
+							"raw": "{{baseUrl}}/api/Group/add-member",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "group", "add-member"]
+							"path": ["api", "Group", "add-member"]
 						},
 						"description": "Test: Adding same member again should return error"
 					},
@@ -367,9 +457,9 @@
 					"request": {
 						"method": "GET",
 						"url": {
-							"raw": "{{baseUrl}}/api/group/my-groups",
+							"raw": "{{baseUrl}}/api/Group/my-groups",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "group", "my-groups"]
+							"path": ["api", "Group", "my-groups"]
 						},
 						"description": "Get all groups for the logged-in user"
 					},
@@ -380,9 +470,9 @@
 					"request": {
 						"method": "GET",
 						"url": {
-							"raw": "{{baseUrl}}/api/group/{{groupId}}/members",
+							"raw": "{{baseUrl}}/api/Group/{{groupId}}/members",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "group", "{{groupId}}", "members"]
+							"path": ["api", "Group", "{{groupId}}", "members"]
 						},
 						"description": "Get all members of a group with their roles"
 					},
@@ -390,32 +480,12 @@
 				},
 				{
 					"name": "Group Summary",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"try {",
-									"    var response = pm.response.json();",
-									"    pm.test('Summary retrieved', function () {",
-									"        pm.response.to.have.status(200);",
-									"        pm.expect(response.success).to.be.true;",
-									"        pm.expect(response.data.members).to.be.an('array');",
-									"    });",
-									"} catch(e) {",
-									"    console.log('Error: ' + e.message);",
-									"}"
-								]
-							}
-						}
-					],
 					"request": {
 						"method": "GET",
 						"url": {
-							"raw": "{{baseUrl}}/api/group/summary/{{groupId}}",
+							"raw": "{{baseUrl}}/api/Group/summary/{{groupId}}",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "group", "summary", "{{groupId}}"]
+							"path": ["api", "Group", "summary", "{{groupId}}"]
 						},
 						"description": "Get group expense summary with paid/share/net per member"
 					},
@@ -465,9 +535,9 @@
 							"raw": "{\n    \"groupId\": {{groupId}},\n    \"description\": \"Dinner\",\n    \"amount\": 300,\n    \"paidBy\": 1,\n    \"splitType\": \"Equal\",\n    \"members\": [1, 2, 3]\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/expense/add",
+							"raw": "{{baseUrl}}/api/Expense/add",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "expense", "add"]
+							"path": ["api", "Expense", "add"]
 						},
 						"description": "Add expense with equal split among members"
 					},
@@ -488,9 +558,9 @@
 							"raw": "{\n    \"groupId\": {{groupId}},\n    \"description\": \"Hotel Room\",\n    \"amount\": 500,\n    \"paidBy\": 1,\n    \"splitType\": \"Custom\",\n    \"members\": [1, 2, 3],\n    \"customAmounts\": [200, 150, 150]\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/expense/add",
+							"raw": "{{baseUrl}}/api/Expense/add",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "expense", "add"]
+							"path": ["api", "Expense", "add"]
 						},
 						"description": "Add expense with custom split amounts"
 					},
@@ -511,9 +581,9 @@
 							"raw": "{\n    \"groupId\": {{groupId}},\n    \"description\": \"Test\",\n    \"amount\": 0,\n    \"paidBy\": 1,\n    \"splitType\": \"Equal\",\n    \"members\": [1, 2]\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/expense/add",
+							"raw": "{{baseUrl}}/api/Expense/add",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "expense", "add"]
+							"path": ["api", "Expense", "add"]
 						},
 						"description": "Test: Amount = 0 should return validation error"
 					},
@@ -534,9 +604,9 @@
 							"raw": "{\n    \"groupId\": {{groupId}},\n    \"description\": \"Test\",\n    \"amount\": 100,\n    \"paidBy\": 9999,\n    \"splitType\": \"Equal\",\n    \"members\": [1, 2]\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/expense/add",
+							"raw": "{{baseUrl}}/api/Expense/add",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "expense", "add"]
+							"path": ["api", "Expense", "add"]
 						},
 						"description": "Test: PaidBy member not in group should return error"
 					},
@@ -557,9 +627,9 @@
 							"raw": "{\n    \"groupId\": {{groupId}},\n    \"description\": \"Test\",\n    \"amount\": 100,\n    \"paidBy\": 1,\n    \"splitType\": \"Equal\",\n    \"members\": []\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/expense/add",
+							"raw": "{{baseUrl}}/api/Expense/add",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "expense", "add"]
+							"path": ["api", "Expense", "add"]
 						},
 						"description": "Test: Empty members list should return validation error"
 					},
@@ -580,9 +650,9 @@
 							"raw": "{\n    \"expenseId\": {{expenseId}},\n    \"description\": \"Dinner Updated\",\n    \"amount\": 450,\n    \"paidBy\": 1,\n    \"splitType\": \"Equal\",\n    \"members\": [1, 2, 3]\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/expense/edit",
+							"raw": "{{baseUrl}}/api/Expense/edit",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "expense", "edit"]
+							"path": ["api", "Expense", "edit"]
 						},
 						"description": "Edit an existing expense"
 					},
@@ -593,9 +663,9 @@
 					"request": {
 						"method": "DELETE",
 						"url": {
-							"raw": "{{baseUrl}}/api/expense/delete/{{expenseId}}",
+							"raw": "{{baseUrl}}/api/Expense/delete/{{expenseId}}",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "expense", "delete", "{{expenseId}}"]
+							"path": ["api", "Expense", "delete", "{{expenseId}}"]
 						},
 						"description": "Soft-delete an expense"
 					},
@@ -606,9 +676,9 @@
 					"request": {
 						"method": "DELETE",
 						"url": {
-							"raw": "{{baseUrl}}/api/expense/delete/99999",
+							"raw": "{{baseUrl}}/api/Expense/delete/99999",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "expense", "delete", "99999"]
+							"path": ["api", "Expense", "delete", "99999"]
 						},
 						"description": "Test: Invalid expenseId should return error"
 					},
@@ -619,16 +689,162 @@
 					"request": {
 						"method": "GET",
 						"url": {
-							"raw": "{{baseUrl}}/api/expense/group/{{groupId}}",
+							"raw": "{{baseUrl}}/api/Expense/group/{{groupId}}",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "expense", "group", "{{groupId}}"]
+							"path": ["api", "Expense", "group", "{{groupId}}"]
 						},
 						"description": "Get all expenses for a group"
+					},
+					"response": []
+				},
+				{
+					"name": "Move expense",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"expenseId\": {{expenseId}},\n    \"newGroupId\": {{groupId}}\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/Expense/move",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Expense", "move"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List expense account tags",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/Expense/accounts/{{memberId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Expense", "accounts", "{{memberId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create expense account tag",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": {{memberId}},\n    \"accountName\": \"Personal\",\n    \"accountColor\": \"#0ABFBC\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/Expense/accounts",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Expense", "accounts"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete expense account tag",
+					"request": {
+						"method": "DELETE",
+						"url": {
+							"raw": "{{baseUrl}}/api/Expense/accounts/{{accountId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Expense", "accounts", "{{accountId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Upload expense attachment",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "formdata",
+							"formdata": [{ "key": "file", "type": "file", "src": "" }]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/Expense/{{expenseId}}/attachment",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Expense", "{{expenseId}}", "attachment"]
+						},
+						"description": "form-data key: file (jpg, png, pdf)"
+					},
+					"response": []
+				},
+				{
+					"name": "List expense attachments",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/Expense/{{expenseId}}/attachments",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Expense", "{{expenseId}}", "attachments"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete expense attachment",
+					"request": {
+						"method": "DELETE",
+						"url": {
+							"raw": "{{baseUrl}}/api/Expense/attachment/{{attachmentId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Expense", "attachment", "{{attachmentId}}"]
+						}
 					},
 					"response": []
 				}
 			],
 			"description": "Group expense endpoints"
+		},
+		{
+			"name": "Settlement",
+			"item": [
+				{
+					"name": "Record settlement",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"groupId\": {{groupId}},\n    \"fromMemberId\": {{secondMemberId}},\n    \"toMemberId\": {{memberId}},\n    \"amount\": 50\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/Settlement/record",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Settlement", "record"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List settlements by group",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/Settlement/group/{{groupId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Settlement", "group", "{{groupId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Suggested settlements",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/Settlement/suggested/{{groupId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Settlement", "suggested", "{{groupId}}"]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "Group settlements"
 		},
 		{
 			"name": "Personal",
@@ -648,9 +864,9 @@
 							"raw": "{\n    \"description\": \"Coffee\",\n    \"amount\": 15.50\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/expense/personal",
+							"raw": "{{baseUrl}}/api/Expense/personal",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "expense", "personal"]
+							"path": ["api", "Expense", "personal"]
 						},
 						"description": "Add a personal expense (no group)"
 					},
@@ -681,9 +897,9 @@
 					"request": {
 						"method": "GET",
 						"url": {
-							"raw": "{{baseUrl}}/api/expense/personal",
+							"raw": "{{baseUrl}}/api/Expense/personal",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "expense", "personal"]
+							"path": ["api", "Expense", "personal"]
 						},
 						"description": "Get all personal expenses for the logged-in user"
 					},
@@ -703,9 +919,9 @@
 						},
 						"method": "GET",
 						"url": {
-							"raw": "{{baseUrl}}/api/group/my-groups",
+							"raw": "{{baseUrl}}/api/Group/my-groups",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "group", "my-groups"]
+							"path": ["api", "Group", "my-groups"]
 						},
 						"description": "Test: Calling API without token should return 401 Unauthorized"
 					},
@@ -726,9 +942,9 @@
 						},
 						"method": "GET",
 						"url": {
-							"raw": "{{baseUrl}}/api/group/my-groups",
+							"raw": "{{baseUrl}}/api/Group/my-groups",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "group", "my-groups"]
+							"path": ["api", "Group", "my-groups"]
 						},
 						"description": "Test: Calling API with invalid token should return 401 Unauthorized"
 					},

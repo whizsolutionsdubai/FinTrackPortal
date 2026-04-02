@@ -8,7 +8,7 @@ namespace FinTrackPortal.API.Services
     /// Files are stored with a GUID-based name to avoid collisions;
     /// the returned URL is saved to the database by the repository layer.
     /// </summary>
-    public class BlobStorageService
+    public class BlobStorageService : IAttachmentStorageService
     {
         private readonly string _connectionString;
         private readonly string _containerName;
@@ -21,7 +21,7 @@ namespace FinTrackPortal.API.Services
         }
 
         /// <summary>Upload a file and return its public blob URL.</summary>
-        public async Task<string> UploadFileAsync(IFormFile file)
+        public async Task<string> UploadFileAsync(IFormFile file, CancellationToken cancellationToken = default)
         {
             var extension = Path.GetExtension(file.FileName);
             var uniqueName = $"{Guid.NewGuid()}{extension}";
@@ -34,20 +34,20 @@ namespace FinTrackPortal.API.Services
                 HttpHeaders = new BlobHttpHeaders { ContentType = file.ContentType }
             };
 
-            using var stream = file.OpenReadStream();
-            await blob.UploadAsync(stream, options);
+            await using var stream = file.OpenReadStream();
+            await blob.UploadAsync(stream, options, cancellationToken);
 
             return blob.Uri.ToString();
         }
 
         /// <summary>Delete a blob by its full URL.</summary>
-        public async Task DeleteFileAsync(string fileUrl)
+        public async Task DeleteFileAsync(string fileUrl, CancellationToken cancellationToken = default)
         {
             var uri = new Uri(fileUrl);
             var blobName = Path.GetFileName(uri.LocalPath);
 
             var client = new BlobContainerClient(_connectionString, _containerName);
-            await client.GetBlobClient(blobName).DeleteIfExistsAsync();
+            await client.GetBlobClient(blobName).DeleteIfExistsAsync(cancellationToken: cancellationToken);
         }
     }
 }

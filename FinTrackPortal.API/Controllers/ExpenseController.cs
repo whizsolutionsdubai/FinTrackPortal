@@ -20,13 +20,13 @@ namespace FinTrackPortal.API.Controllers
     {
         private readonly IExpenseService _expenseService;
         private readonly IGroupService _groupService;
-        private readonly BlobStorageService _blobService;
+        private readonly IAttachmentStorageService _attachmentStorage;
 
-        public ExpenseController(IExpenseService expenseService, IGroupService groupService, BlobStorageService blobService)
+        public ExpenseController(IExpenseService expenseService, IGroupService groupService, IAttachmentStorageService attachmentStorage)
         {
             _expenseService = expenseService;
             _groupService = groupService;
-            _blobService = blobService;
+            _attachmentStorage = attachmentStorage;
         }
 
         /// <summary>
@@ -284,7 +284,7 @@ namespace FinTrackPortal.API.Controllers
 
         /// <summary>
         /// POST /api/Expense/{expenseId}/attachment — Upload a receipt or invoice (JPG, PNG, PDF).
-        /// The file is stored in Azure Blob Storage and the URL is saved to the database.
+        /// Storage backend is selected by <c>AttachmentStorage:Provider</c> (Azure or Local).
         /// </summary>
         [HttpPost("{expenseId}/attachment")]
         [RequestSizeLimit(10_485_760)]
@@ -299,7 +299,7 @@ namespace FinTrackPortal.API.Controllers
                 return BadRequest(ApiResponse<object?>.ErrorResponse("Only JPG, PNG and PDF files are allowed."));
 
             var uploadedBy = User.GetEmail();
-            var fileUrl = await _blobService.UploadFileAsync(file);
+            var fileUrl = await _attachmentStorage.UploadFileAsync(file);
             var fileType = ext == ".pdf" ? "pdf" : "image";
             var sizeKB = (int)(file.Length / 1024);
 

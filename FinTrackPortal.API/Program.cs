@@ -1,9 +1,11 @@
 
+using FinTrackPortal.API.Services;
 using FinTrackPortal.Interfaces;
 using FinTrackPortal.Models;
 using FinTrackPortal.Repositories;
 using FinTrackPortal.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
@@ -96,7 +98,12 @@ builder.Services.AddScoped<ISettlementRepository, SettlementRepository>();
 builder.Services.AddScoped<ISettlementService, SettlementService>();
 builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
-builder.Services.AddScoped<FinTrackPortal.API.Services.BlobStorageService>();
+
+var attachmentProvider = builder.Configuration["AttachmentStorage:Provider"]?.Trim() ?? "Azure";
+if (string.Equals(attachmentProvider, "Local", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddScoped<IAttachmentStorageService, LocalFileStorageService>();
+else
+    builder.Services.AddScoped<IAttachmentStorageService, BlobStorageService>();
 
 builder.Services.AddAuthentication(options =>
 {
@@ -181,6 +188,23 @@ app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "FinTrack WH
 
 
 app.UseHttpsRedirection();
+
+if (string.Equals(app.Configuration["AttachmentStorage:Provider"]?.Trim() ?? "Azure", "Local", StringComparison.OrdinalIgnoreCase))
+{
+    var configuredPath = app.Configuration["LocalStorage:Path"];
+    if (!string.IsNullOrWhiteSpace(configuredPath))
+    {
+        var localPath = LocalFileStorageService.ResolvePhysicalStoragePath(configuredPath, app.Environment);
+        if (!Directory.Exists(localPath))
+            Directory.CreateDirectory(localPath);
+
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new PhysicalFileProvider(localPath),
+            RequestPath = "/attachments"
+        });
+    }
+}
 
 app.UseAuthentication();
 app.UseAuthorization();

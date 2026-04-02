@@ -197,13 +197,13 @@ sqlcmd -S localhost -i Database/FinTrackDB_Schema.sql
 
 ### Postman
 
-Pre-built Postman collection and environment files are included in the repository root:
+Import from the repository root:
 
-- `FinTrackPortal.postman_collection.json`
-- `FinTrackPortal.postman_environment_dev.json`
-- `FinTrackPortal.postman_environment_production.json`
+- `FinTrackPortal.postman_collection.json` — all API modules
+- `FinTrackPortal.postman_environment_Local.json` — `baseUrl` for local dev (default `https://localhost:7124`)
+- `FinTrackPortal.postman_environment_Production.json` — production `baseUrl`
 
-Import them into Postman for quick API testing.
+In each environment, set **loginEmail** and **loginPassword**, select the environment in Postman, then run **Auth → Login** (saves the JWT to collection variables).
 
 ## CI/CD
 
