@@ -57,6 +57,13 @@ FinTrackPortal.sln
 | GET | `/api/Expense/group/{groupId}` | Get expenses for a group |
 | POST | `/api/Expense/personal` | Add a personal (non-group) expense |
 | GET | `/api/Expense/personal` | Get personal expenses for logged-in user |
+| POST | `/api/Expense/move` | Move an expense to a different group |
+| GET | `/api/Expense/accounts/{userId}` | List account labels for a user |
+| POST | `/api/Expense/accounts` | Create a new account label |
+| DELETE | `/api/Expense/accounts/{accountId}` | Soft-delete an account label |
+| POST | `/api/Expense/{expenseId}/attachment` | Upload a receipt/invoice (JPG, PNG, PDF) |
+| GET | `/api/Expense/{expenseId}/attachments` | List attachments for an expense |
+| DELETE | `/api/Expense/attachment/{attachmentId}` | Soft-delete an attachment |
 
 ### Settlements (`api/Settlement`)
 
@@ -66,6 +73,16 @@ FinTrackPortal.sln
 | GET | `/api/Settlement/group/{groupId}` | Get settlement history for a group |
 | GET | `/api/Settlement/suggested/{groupId}` | Get suggested payments to clear all debts |
 
+### Subscriptions (`api/Subscription`)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/Subscription/plans` | List available plans (public) |
+| GET | `/api/Subscription/my` | Get current plan for logged-in user |
+| GET | `/api/Subscription/user/{memberId}` | Get current plan for a specific member |
+| POST | `/api/Subscription/activate` | Activate a plan after payment |
+| POST | `/api/Subscription/cancel` | Cancel the logged-in user's subscription |
+
 ### Members (`api/Member`)
 
 | Method | Route | Description |
@@ -74,7 +91,7 @@ FinTrackPortal.sln
 | PUT | `/api/Member/edit` | Edit member name |
 | DELETE | `/api/Member/delete/{memberId}` | Soft-delete a member |
 
-> All endpoints except Auth require a valid JWT Bearer token.
+> All endpoints except Auth and Subscription/plans require a valid JWT Bearer token.
 
 ## Database Schema
 
@@ -92,9 +109,15 @@ Database/FinTrackDB_Schema.sql
 | `Users` | Login credentials linked to a Member |
 | `Groups` | Expense-sharing groups |
 | `GroupMember` | Many-to-many link between groups and members (with role) |
-| `Expense` | Group or personal expense records |
+| `Expense` | Group or personal expense records (with optional AccountId, CostCenterId) |
 | `ExpenseSplit` | Per-member share of each expense |
 | `Settlement` | Debt settlements between members |
+| `SubscriptionPlan` | Plan definitions (Free / Premium) with limits and pricing |
+| `UserSubscription` | Each member's active subscription and billing cycle |
+| `ExpenseAccount` | User-defined account labels (Personal, Flat, Customer, etc.) |
+| `ExpenseAttachment` | Metadata for receipt/invoice files stored in Azure Blob Storage |
+| `Organisation` | Corporate/B2B tier (foundation table — used later) |
+| `CostCenter` | Cost centers within an Organisation (foundation — used later) |
 
 ### Stored Procedures
 
@@ -108,12 +131,20 @@ Database/FinTrackDB_Schema.sql
 | `sp_AddMemberToGroup` | Add member to a group |
 | `sp_GetMyGroups` / `sp_GetGroupMembers` / `sp_GetGroupSummary` | Group queries |
 | `sp_IsMemberOfGroup` | Membership check |
-| `sp_AddExpense` / `sp_UpdateExpense` / `sp_DeleteExpense` | Expense CRUD |
+| `sp_AddExpense` / `sp_UpdateExpense` / `sp_DeleteExpense` | Expense CRUD (now with optional @AccountId) |
 | `sp_AddExpenseSplit` / `sp_DeleteExpenseSplits` | Manage expense splits |
 | `sp_AddPersonalExpense` / `sp_GetPersonalExpenses` | Personal expense tracking |
 | `sp_GetExpensesByGroup` | List group expenses |
+| `sp_MoveExpense` | Move an expense to a different group |
 | `sp_RecordSettlement` | Record a payment between members |
 | `sp_GetSettlementsByGroup` | Get settlement history for a group |
+| `sp_GetSubscriptionPlans` | List active subscription plans |
+| `sp_GetUserSubscription` | Get member's current subscription |
+| `sp_CreateUserSubscription` | Activate a subscription after payment |
+| `sp_CancelUserSubscription` | Deactivate a member's subscription |
+| `sp_CheckUserLimit` | Check group/member limits against plan |
+| `sp_GetUserAccounts` / `sp_CreateAccount` / `sp_DeleteAccount` | Account label CRUD |
+| `sp_AddExpenseAttachment` / `sp_GetExpenseAttachments` / `sp_DeleteExpenseAttachment` | Attachment CRUD |
 
 ## Getting Started
 

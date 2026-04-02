@@ -17,13 +17,18 @@ namespace FinTrackPortal.API.Controllers
     public class GroupController : ControllerBase
     {
         private readonly IGroupService _groupService;
+        private readonly ISubscriptionService _subscriptionService;
 
-        public GroupController(IGroupService groupService)
+        public GroupController(IGroupService groupService, ISubscriptionService subscriptionService)
         {
             _groupService = groupService;
+            _subscriptionService = subscriptionService;
         }
 
-        /// <summary>POST /api/Group/create — Creates a group and adds the caller as Admin.</summary>
+        /// <summary>
+        /// POST /api/Group/create — Creates a group and adds the caller as Admin.
+        /// Enforces the subscription plan's MaxGroups limit before proceeding.
+        /// </summary>
         [HttpPost("create")]
         public async Task<IActionResult> Create([FromBody] CreateGroupRequest request)
         {
@@ -36,6 +41,12 @@ namespace FinTrackPortal.API.Controllers
             var memberId = User.GetMemberId();
             var email = User.GetEmail();
 
+            var limitCheck = await _subscriptionService.IsActionAllowedAsync(memberId, "group");
+            if (limitCheck.IsSuccess && !limitCheck.Data)
+                return StatusCode(402, ApiResponse<object?>.ErrorResponse(
+                    "You have reached the maximum number of groups on your current plan.",
+                    "Upgrade to Premium for unlimited groups."));
+
             var result = await _groupService.CreateGroupAsync(request.GroupName, memberId, email);
 
             if (!result.IsSuccess)
@@ -47,7 +58,10 @@ namespace FinTrackPortal.API.Controllers
             }, "Group created successfully"));
         }
 
-        /// <summary>POST /api/Group/add-member — Adds an existing member to a group.</summary>
+        /// <summary>
+        /// POST /api/Group/add-member — Adds an existing member to a group.
+        /// Enforces the subscription plan's MaxMembersPerGroup limit before proceeding.
+        /// </summary>
         [HttpPost("add-member")]
         public async Task<IActionResult> AddMember([FromBody] AddMemberRequest request)
         {
@@ -58,7 +72,14 @@ namespace FinTrackPortal.API.Controllers
             }
 
             var createdBy = User.GetEmail();
+            var memberId = User.GetMemberId();
             string role = request.Role ?? "Member";
+
+            var limitCheck = await _subscriptionService.IsActionAllowedAsync(memberId, "member", request.GroupId);
+            if (limitCheck.IsSuccess && !limitCheck.Data)
+                return StatusCode(402, ApiResponse<object?>.ErrorResponse(
+                    "You have reached the maximum members for this group on your current plan.",
+                    "Upgrade to Premium for unlimited members per group."));
 
             var result = await _groupService.AddMemberToGroupAsync(request.GroupId, request.MemberId, role, createdBy);
 

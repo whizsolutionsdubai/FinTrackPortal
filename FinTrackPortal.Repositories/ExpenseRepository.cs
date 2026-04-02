@@ -183,6 +183,148 @@ namespace FinTrackPortal.Repositories
             }
         }
 
+        public async Task<OperationResult<bool>> MoveExpenseAsync(long expenseId, long newGroupId, string modifiedBy)
+        {
+            try
+            {
+                using var conn = Connection;
+
+                var rows = await conn.ExecuteAsync(
+                    "sp_MoveExpense",
+                    new { ExpenseId = expenseId, NewGroupId = newGroupId, ModifiedBy = modifiedBy },
+                    commandType: CommandType.StoredProcedure);
+
+                return rows > 0
+                    ? OperationResult<bool>.Success(true)
+                    : OperationResult<bool>.Failure("Expense not found or already inactive.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error moving expense {ExpenseId} to group {NewGroupId}", expenseId, newGroupId);
+                return OperationResult<bool>.Failure(ex.Message);
+            }
+        }
+
+        public async Task<OperationResult<List<ExpenseAccountResponse>>> GetUserAccountsAsync(long userId)
+        {
+            try
+            {
+                using var conn = Connection;
+
+                var accounts = (await conn.QueryAsync<ExpenseAccountResponse>(
+                    "sp_GetUserAccounts",
+                    new { UserId = userId },
+                    commandType: CommandType.StoredProcedure)).ToList();
+
+                return OperationResult<List<ExpenseAccountResponse>>.Success(accounts);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching accounts for user {UserId}", userId);
+                return OperationResult<List<ExpenseAccountResponse>>.Failure(ex.Message);
+            }
+        }
+
+        public async Task<OperationResult<long>> CreateAccountAsync(long userId, string accountName, string? accountColor)
+        {
+            try
+            {
+                using var conn = Connection;
+
+                var accountId = await conn.ExecuteScalarAsync<long>(
+                    "sp_CreateAccount",
+                    new { UserId = userId, AccountName = accountName, AccountColor = accountColor },
+                    commandType: CommandType.StoredProcedure);
+
+                return OperationResult<long>.Success(accountId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating account for user {UserId}", userId);
+                return OperationResult<long>.Failure(ex.Message);
+            }
+        }
+
+        public async Task<OperationResult<bool>> DeleteAccountAsync(long accountId)
+        {
+            try
+            {
+                using var conn = Connection;
+
+                await conn.ExecuteAsync(
+                    "sp_DeleteAccount",
+                    new { AccountId = accountId },
+                    commandType: CommandType.StoredProcedure);
+
+                return OperationResult<bool>.Success(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting account {AccountId}", accountId);
+                return OperationResult<bool>.Failure(ex.Message);
+            }
+        }
+
+        public async Task<OperationResult<long>> AddAttachmentAsync(long expenseId, string fileName, string fileUrl, string fileType, int? fileSizeKB, string uploadedBy)
+        {
+            try
+            {
+                using var conn = Connection;
+
+                var attachmentId = await conn.ExecuteScalarAsync<long>(
+                    "sp_AddExpenseAttachment",
+                    new { ExpenseId = expenseId, FileName = fileName, FileUrl = fileUrl, FileType = fileType, FileSizeKB = fileSizeKB, UploadedBy = uploadedBy },
+                    commandType: CommandType.StoredProcedure);
+
+                return OperationResult<long>.Success(attachmentId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding attachment for expense {ExpenseId}", expenseId);
+                return OperationResult<long>.Failure(ex.Message);
+            }
+        }
+
+        public async Task<OperationResult<List<AttachmentResponse>>> GetAttachmentsAsync(long expenseId)
+        {
+            try
+            {
+                using var conn = Connection;
+
+                var attachments = (await conn.QueryAsync<AttachmentResponse>(
+                    "sp_GetExpenseAttachments",
+                    new { ExpenseId = expenseId },
+                    commandType: CommandType.StoredProcedure)).ToList();
+
+                return OperationResult<List<AttachmentResponse>>.Success(attachments);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching attachments for expense {ExpenseId}", expenseId);
+                return OperationResult<List<AttachmentResponse>>.Failure(ex.Message);
+            }
+        }
+
+        public async Task<OperationResult<bool>> DeleteAttachmentAsync(long attachmentId)
+        {
+            try
+            {
+                using var conn = Connection;
+
+                await conn.ExecuteAsync(
+                    "sp_DeleteExpenseAttachment",
+                    new { AttachmentId = attachmentId },
+                    commandType: CommandType.StoredProcedure);
+
+                return OperationResult<bool>.Success(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting attachment {AttachmentId}", attachmentId);
+                return OperationResult<bool>.Failure(ex.Message);
+            }
+        }
+
         /// <summary>
         /// Split an expense amount among members.
         /// "Custom" uses the caller-supplied amounts; "Equal" divides evenly (rounded to 2 decimals).

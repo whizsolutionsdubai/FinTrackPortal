@@ -31,5 +31,26 @@ namespace FinTrackPortal.Services
 
         public Task<OperationResult<List<ExpenseResponse>>> GetPersonalExpensesAsync(long memberId)
             => _repository.GetPersonalExpensesAsync(memberId);
+
+        public Task<OperationResult<bool>> MoveExpenseAsync(long expenseId, long newGroupId, string modifiedBy)
+            => _repository.MoveExpenseAsync(expenseId, newGroupId, modifiedBy);
+
+        public Task<OperationResult<List<ExpenseAccountResponse>>> GetUserAccountsAsync(long userId)
+            => _repository.GetUserAccountsAsync(userId);
+
+        public Task<OperationResult<long>> CreateAccountAsync(long userId, string accountName, string? accountColor)
+            => _repository.CreateAccountAsync(userId, accountName, accountColor);
+
+        public Task<OperationResult<bool>> DeleteAccountAsync(long accountId)
+            => _repository.DeleteAccountAsync(accountId);
+
+        public Task<OperationResult<long>> AddAttachmentAsync(long expenseId, string fileName, string fileUrl, string fileType, int? fileSizeKB, string uploadedBy)
+            => _repository.AddAttachmentAsync(expenseId, fileName, fileUrl, fileType, fileSizeKB, uploadedBy);
+
+        public Task<OperationResult<List<AttachmentResponse>>> GetAttachmentsAsync(long expenseId)
+            => _repository.GetAttachmentsAsync(expenseId);
+
+        public Task<OperationResult<bool>> DeleteAttachmentAsync(long attachmentId)
+            => _repository.DeleteAttachmentAsync(attachmentId);
     }
 }

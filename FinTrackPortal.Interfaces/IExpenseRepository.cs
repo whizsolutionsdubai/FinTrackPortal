@@ -27,5 +27,26 @@ namespace FinTrackPortal.Interfaces
 
         /// <summary>List all personal expenses for a member (sp_GetPersonalExpenses).</summary>
         Task<OperationResult<List<ExpenseResponse>>> GetPersonalExpensesAsync(long memberId);
+
+        /// <summary>Move an expense to a different group (sp_MoveExpense). Splits remain unchanged.</summary>
+        Task<OperationResult<bool>> MoveExpenseAsync(long expenseId, long newGroupId, string modifiedBy);
+
+        /// <summary>Get all account labels for a user (sp_GetUserAccounts).</summary>
+        Task<OperationResult<List<ExpenseAccountResponse>>> GetUserAccountsAsync(long userId);
+
+        /// <summary>Create a new account label (sp_CreateAccount).</summary>
+        Task<OperationResult<long>> CreateAccountAsync(long userId, string accountName, string? accountColor);
+
+        /// <summary>Soft-delete an account label (sp_DeleteAccount).</summary>
+        Task<OperationResult<bool>> DeleteAccountAsync(long accountId);
+
+        /// <summary>Save attachment metadata after the file is uploaded to blob storage (sp_AddExpenseAttachment).</summary>
+        Task<OperationResult<long>> AddAttachmentAsync(long expenseId, string fileName, string fileUrl, string fileType, int? fileSizeKB, string uploadedBy);
+
+        /// <summary>Get all active attachments for an expense (sp_GetExpenseAttachments).</summary>
+        Task<OperationResult<List<AttachmentResponse>>> GetAttachmentsAsync(long expenseId);
+
+        /// <summary>Soft-delete an attachment record (sp_DeleteExpenseAttachment).</summary>
+        Task<OperationResult<bool>> DeleteAttachmentAsync(long attachmentId);
     }
 }
