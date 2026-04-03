@@ -19,6 +19,11 @@ var builder = WebApplication.CreateBuilder(args);
 var jwtSettingsSection = builder.Configuration.GetSection("JwtSettings");
 builder.Services.Configure<JwtSettings>(jwtSettingsSection);
 
+builder.Services.Configure<AppEmailOptions>(builder.Configuration.GetSection(AppEmailOptions.SectionName));
+builder.Services.AddSingleton<SmtpEmailSender>();
+builder.Services.AddSingleton<MicrosoftGraphEmailSender>();
+builder.Services.AddSingleton<IEmailSender, EmailSenderSelector>();
+
 var jwtSettings = jwtSettingsSection.Get<JwtSettings>()
     ?? throw new InvalidOperationException("JwtSettings configuration section is missing or invalid.");
 if (string.IsNullOrWhiteSpace(jwtSettings.Key))
@@ -153,6 +158,14 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        policy => policy
+            .AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader());
+});
 
 builder.Services.AddAuthorization(); 
 
@@ -214,6 +227,9 @@ if (string.Equals(app.Configuration["AttachmentStorage:Provider"]?.Trim() ?? "Az
         });
     }
 }
+
+
+app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -7,7 +7,7 @@
     Authors : Joseph Xavier & Abhilash Thomas
 
     Exported from production and cleaned for portability.
-    Includes: 14 tables, 38 stored procedures, seed + sample data (BCrypt sample passwords; re-run script for fresh DB).
+    Includes: 14 tables, 43 stored procedures, seed + sample data (demo password FinShare1!Demo; re-run script for fresh DB).
 
     WARNING: This script DROPS and RECREATES the database from scratch.
     All existing data will be lost. Use only for fresh installs or dev/test.
@@ -148,6 +148,11 @@ CREATE TABLE [dbo].[Users](
 	[ModifiedBy] [nvarchar](100) NULL,
 	[IsActive] [bit] NULL,
 	[ExpiryDate] [datetime] NULL,
+	[IsEmailVerified] [bit] NOT NULL DEFAULT ((0)),
+	[EmailVerifyToken] [nvarchar](200) NULL,
+	[EmailVerifyExpiry] [datetime] NULL,
+	[PasswordResetToken] [nvarchar](200) NULL,
+	[PasswordResetExpiry] [datetime] NULL,
  CONSTRAINT [PK_Users] PRIMARY KEY CLUSTERED
 (
 	[UserID] ASC
@@ -385,9 +390,9 @@ GO
 
 SET IDENTITY_INSERT [dbo].[Users] ON
 GO
-INSERT [dbo].[Users] ([UserID], [UserName], [EmailAddress], [Mobile], [PasswordHash], [MemberId], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [ExpiryDate]) VALUES (1, N'abhilash2006@gmail.com', N'abhilash2006@gmail.com', N'0505743855', N'$2a$12$Jd7ktOon08psnB0Y/eiftuNjNATQP62ntc3NOq9LmwcYpG1VtUfZO', 1, CAST(N'2026-03-12T00:00:00.0000000' AS DateTime2), NULL, N'admin', NULL, 1, CAST(N'2028-12-12T00:00:00.000' AS DateTime))
+INSERT [dbo].[Users] ([UserID], [UserName], [EmailAddress], [Mobile], [PasswordHash], [MemberId], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [ExpiryDate], [IsEmailVerified], [EmailVerifyToken], [EmailVerifyExpiry], [PasswordResetToken], [PasswordResetExpiry]) VALUES (1, N'abhilash2006@gmail.com', N'abhilash2006@gmail.com', N'0505743855', N'$2a$12$KD.b74KekP18zgv5eYNbkeZojx4Rrc33dJMvwqH5vVAdiaE4KMn9u', 1, CAST(N'2026-03-12T00:00:00.0000000' AS DateTime2), NULL, N'admin', NULL, 1, CAST(N'2028-12-12T00:00:00.000' AS DateTime), 1, NULL, NULL, NULL, NULL)
 GO
-INSERT [dbo].[Users] ([UserID], [UserName], [EmailAddress], [Mobile], [PasswordHash], [MemberId], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [ExpiryDate]) VALUES (2, N'thomas@sys.com', N'thomas@sys.com', N'050785748', N'$2a$12$4FLDWdNBQajkhimosEG3CeECJ5UxgvbzFurybmdjVedNO16vie1vq', 4, CAST(N'2026-04-01T12:12:51.9400000' AS DateTime2), NULL, N'thomas@sys.com', NULL, 1, CAST(N'2027-04-01T19:12:51.930' AS DateTime))
+INSERT [dbo].[Users] ([UserID], [UserName], [EmailAddress], [Mobile], [PasswordHash], [MemberId], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [ExpiryDate], [IsEmailVerified], [EmailVerifyToken], [EmailVerifyExpiry], [PasswordResetToken], [PasswordResetExpiry]) VALUES (2, N'thomas@sys.com', N'thomas@sys.com', N'050785748', N'$2a$12$KD.b74KekP18zgv5eYNbkeZojx4Rrc33dJMvwqH5vVAdiaE4KMn9u', 4, CAST(N'2026-04-01T12:12:51.9400000' AS DateTime2), NULL, N'thomas@sys.com', NULL, 1, CAST(N'2027-04-01T19:12:51.930' AS DateTime), 1, NULL, NULL, NULL, NULL)
 GO
 SET IDENTITY_INSERT [dbo].[Users] OFF
 GO
@@ -636,6 +641,7 @@ DROP PROCEDURE IF EXISTS [dbo].[sp_DeleteExpenseSplits];
 DROP PROCEDURE IF EXISTS [dbo].[sp_DeleteMember];
 DROP PROCEDURE IF EXISTS [dbo].[sp_EditMember];
 DROP PROCEDURE IF EXISTS [dbo].[sp_GetExpiry];
+DROP PROCEDURE IF EXISTS [dbo].[sp_GetMemberNameByEmail];
 DROP PROCEDURE IF EXISTS [dbo].[sp_GetAttachmentsByMember];
 DROP PROCEDURE IF EXISTS [dbo].[sp_GetExpenseAttachments];
 DROP PROCEDURE IF EXISTS [dbo].[sp_GetExpensePayers];
@@ -652,9 +658,13 @@ DROP PROCEDURE IF EXISTS [dbo].[sp_IsMemberOfGroup];
 DROP PROCEDURE IF EXISTS [dbo].[sp_MoveExpense];
 DROP PROCEDURE IF EXISTS [dbo].[sp_RecordSettlement];
 DROP PROCEDURE IF EXISTS [dbo].[sp_RegisterUser];
+DROP PROCEDURE IF EXISTS [dbo].[sp_ResetPassword];
+DROP PROCEDURE IF EXISTS [dbo].[sp_SaveEmailVerifyToken];
+DROP PROCEDURE IF EXISTS [dbo].[sp_SavePasswordResetToken];
 DROP PROCEDURE IF EXISTS [dbo].[sp_UpdateExpense];
 DROP PROCEDURE IF EXISTS [dbo].[sp_UpdatePersonalExpense];
 DROP PROCEDURE IF EXISTS [dbo].[sp_ValidateUser];
+DROP PROCEDURE IF EXISTS [dbo].[sp_VerifyEmail];
 GO
 
 -- Auth -----------------------------------------------
@@ -664,21 +674,113 @@ CREATE PROCEDURE [dbo].[sp_ValidateUser]
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT u.MemberId, u.PasswordHash
+    SELECT u.[MemberId], u.[PasswordHash], u.[IsEmailVerified]
     FROM [dbo].[Users] u
-    INNER JOIN [dbo].[Member] m ON m.MemberId = u.MemberId
-    WHERE u.EmailAddress = @UserName
-      AND u.IsActive = 1
-      AND m.IsActive = 1;
+    INNER JOIN [dbo].[Member] m ON m.[MemberId] = u.[MemberId]
+    WHERE u.[EmailAddress] = @UserName
+      AND u.[IsActive] = 1
+      AND m.[IsActive] = 1;
 END
 GO
 
 CREATE PROCEDURE [dbo].[sp_GetExpiry]
-    @UserName NVARCHAR(50)
+    @UserName NVARCHAR(255)
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT ExpiryDate FROM [dbo].[Users] WHERE UserName = @UserName;
+    SELECT [ExpiryDate] FROM [dbo].[Users] WHERE [EmailAddress] = @UserName AND [IsActive] = 1;
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_SaveEmailVerifyToken]
+    @Email NVARCHAR(255),
+    @Token NVARCHAR(200),
+    @ExpiryHours INT = 24
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE [dbo].[Users]
+    SET [EmailVerifyToken] = @Token,
+        [EmailVerifyExpiry] = DATEADD(HOUR, @ExpiryHours, GETUTCDATE())
+    WHERE [EmailAddress] = @Email AND [IsActive] = 1;
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_VerifyEmail]
+    @Token NVARCHAR(200)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @MemberId BIGINT;
+    DECLARE @Expiry DATETIME;
+
+    SELECT @MemberId = [MemberId], @Expiry = [EmailVerifyExpiry]
+    FROM [dbo].[Users]
+    WHERE [EmailVerifyToken] = @Token AND [IsActive] = 1;
+
+    IF @MemberId IS NULL
+    BEGIN
+        SELECT CAST(0 AS BIT) AS [Success], N'Invalid or expired link' AS [Message];
+        RETURN;
+    END
+
+    IF @Expiry < GETUTCDATE()
+    BEGIN
+        SELECT CAST(0 AS BIT) AS [Success], N'Invalid or expired link' AS [Message];
+        RETURN;
+    END
+
+    UPDATE [dbo].[Users]
+    SET [IsEmailVerified] = 1,
+        [EmailVerifyToken] = NULL,
+        [EmailVerifyExpiry] = NULL
+    WHERE [MemberId] = @MemberId AND [EmailVerifyToken] = @Token;
+
+    SELECT CAST(1 AS BIT) AS [Success], N'Email verified successfully' AS [Message];
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_SavePasswordResetToken]
+    @Email NVARCHAR(255),
+    @ResetToken NVARCHAR(200),
+    @ExpiryUTC DATETIME
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE [dbo].[Users]
+    SET [PasswordResetToken] = @ResetToken,
+        [PasswordResetExpiry] = @ExpiryUTC
+    WHERE [EmailAddress] = @Email AND [IsActive] = 1;
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_ResetPassword]
+    @Token NVARCHAR(200),
+    @NewPasswordHash NVARCHAR(500)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE [dbo].[Users]
+    SET [PasswordHash] = @NewPasswordHash,
+        [PasswordResetToken] = NULL,
+        [PasswordResetExpiry] = NULL
+    WHERE [PasswordResetToken] = @Token
+      AND [PasswordResetExpiry] IS NOT NULL
+      AND [PasswordResetExpiry] > GETUTCDATE();
+
+    SELECT @@ROWCOUNT AS [RowsUpdated];
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_GetMemberNameByEmail]
+    @Email NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP (1) m.[MemberName]
+    FROM [dbo].[Users] u
+    INNER JOIN [dbo].[Member] m ON m.[MemberId] = u.[MemberId]
+    WHERE u.[EmailAddress] = @Email AND u.[IsActive] = 1 AND m.[IsActive] = 1;
 END
 GO
 
@@ -713,10 +815,12 @@ BEGIN
 
         INSERT INTO [dbo].[Users]
             (UserName, EmailAddress, Mobile, PasswordHash,
-             MemberId, CreatedBy, CreatedDate, IsActive, ExpiryDate)
+             MemberId, CreatedBy, CreatedDate, IsActive, ExpiryDate,
+             IsEmailVerified, EmailVerifyToken, EmailVerifyExpiry, PasswordResetToken, PasswordResetExpiry)
         VALUES
             (@UserName, @EmailAddress, @Mobile, @PasswordHash,
-             @MemberId, @CreatedBy, GETDATE(), 1, @ExpiryDate);
+             @MemberId, @CreatedBy, GETDATE(), 1, @ExpiryDate,
+             0, NULL, NULL, NULL, NULL);
 
         COMMIT TRANSACTION;
         SELECT @MemberId;

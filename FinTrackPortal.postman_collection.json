@@ -48,6 +48,14 @@
 		{
 			"key": "planId",
 			"value": "2"
+		},
+		{
+			"key": "verifyToken",
+			"value": ""
+		},
+		{
+			"key": "resetToken",
+			"value": ""
 		}
 	],
 	"auth": {
@@ -173,7 +181,64 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "Auth", "register"]
 						},
-						"description": "Creates Member + User. Change email if already registered."
+						"description": "Creates Member + User. No JWT — user must verify email. Password must meet strong rules (e.g. Password1!)."
+					},
+					"response": []
+				},
+				{
+					"name": "Verify email",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"token\": \"{{verifyToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/Auth/verify-email",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Auth", "verify-email"]
+						},
+						"description": "Set collection variable verifyToken from the email link (or DB EmailVerifyToken)."
+					},
+					"response": []
+				},
+				{
+					"name": "Forgot password",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{loginEmail}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/Auth/forgot-password",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Auth", "forgot-password"]
+						},
+						"description": "Always 200 success message. Email sent only if account exists (configure Email in appsettings)."
+					},
+					"response": []
+				},
+				{
+					"name": "Reset password",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"token\": \"{{resetToken}}\",\n    \"newPassword\": \"NewPassword1!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/Auth/reset-password",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Auth", "reset-password"]
+						},
+						"description": "Set resetToken from email link. Strong password required."
 					},
 					"response": []
 				},

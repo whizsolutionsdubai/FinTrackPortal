@@ -25,7 +25,7 @@ namespace FinTrackPortal.Models
         public string? Mobile { get; set; }
 
         [Required]
-        [StringLength(100, MinimumLength = 8)]
+        [MaxLength(64)]
         public string Password { get; set; } = string.Empty;
     }
 }

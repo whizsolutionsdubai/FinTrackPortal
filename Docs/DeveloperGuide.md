@@ -66,15 +66,19 @@ HTTP Request
 | `Docs/` | This guide + wireframe |
 | `FinTrackPortal.postman_collection.json` | Postman (repo root) |
 | `appsettings.Production.example.json` | Production config template (API project) |
+| `appsettings.Development.example.json` | Local template — copy to `appsettings.Development.json` when that file is missing |
 
 ---
 
 ## 3. Configuration (development & production)
 
+**Full key reference:** [AppSettings.md](AppSettings.md). **Microsoft 365 outbound mail:** [Email-Microsoft365-Setup.md](Email-Microsoft365-Setup.md).
+
 | File | Role |
 |------|------|
 | `appsettings.json` | Defaults; safe to commit without secrets |
-| `appsettings.Development.json` | Local overrides (often gitignored) |
+| `appsettings.Development.json` | Local overrides (**gitignored** in this repo) |
+| `appsettings.Development.example.json` | Committed template for Development |
 | `appsettings.Production.json` | Production overrides (**gitignored**) |
 | `appsettings.Production.example.json` | **Committed** template — copy to `appsettings.Production.json` on the server |
 
@@ -92,6 +96,10 @@ For **Local**, `Program.cs` registers static files at `/attachments` mapped to t
 ### JWT
 
 Loaded from `JwtSettings` in `Program.cs`. Signing key must be non-empty; use a long random secret in production.
+
+### Email
+
+`Email` binds to `AppEmailOptions`. **`Provider`** `MicrosoftGraph` uses Entra app registration + **`Mail.Send`** (application permission) and **`Graph:SenderMailbox`**. See [Email-Microsoft365-Setup.md](Email-Microsoft365-Setup.md).
 
 ---
 
@@ -157,6 +165,9 @@ Do not commit `bin/**` XML files; they are build artifacts.
 |--------|-------|
 | POST | `/api/Auth/login` |
 | POST | `/api/Auth/register` |
+| POST | `/api/Auth/verify-email` |
+| POST | `/api/Auth/forgot-password` |
+| POST | `/api/Auth/reset-password` |
 
 ### Subscription
 
@@ -238,6 +249,9 @@ Do not commit `bin/**` XML files; they are build artifacts.
 | Document / file | Description |
 |-----------------|-------------|
 | [README.md](../README.md) | Overview, endpoints, configuration summary, Postman |
+| [AppSettings.md](AppSettings.md) | All `appsettings` sections and environment layering |
+| [Email-Microsoft365-Setup.md](Email-Microsoft365-Setup.md) | Microsoft 365 / Graph email + Entra steps |
 | `Database/FinTrackDB_Schema.sql` | Authoritative schema |
 | `appsettings.Production.example.json` | Production template |
+| `appsettings.Development.example.json` | Development template |
 | `FinTrackPortal.postman_collection.json` | API tests |

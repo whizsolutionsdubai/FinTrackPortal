@@ -4,13 +4,16 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>fintrackportal-api-8f3c2a1b-4d5e-6f70-8192-a3b4c5d6e7f8</UserSecretsId>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
+	  <PackageReference Include="Azure.Identity" Version="1.13.2" />
 	  <PackageReference Include="Azure.Storage.Blobs" Version="12.27.0" />
-	  <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.17" /> 
+	  <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.17" />
+	  <PackageReference Include="Microsoft.Graph" Version="5.78.0" /> 
 	  <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
   </ItemGroup>
 

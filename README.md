@@ -29,7 +29,7 @@ FinTrackPortal.sln
 └── FinTrackPortal.Common         # Shared wrappers (ApiResponse<T>, OperationResult<T>)
 ```
 
-More detail: [Docs/DeveloperGuide.md](Docs/DeveloperGuide.md).
+More detail: [Docs/DeveloperGuide.md](Docs/DeveloperGuide.md). **Configuration:** [Docs/AppSettings.md](Docs/AppSettings.md) (all `appsettings` keys). **Microsoft 365 email:** [Docs/Email-Microsoft365-Setup.md](Docs/Email-Microsoft365-Setup.md).
 
 ## API Endpoints
 
@@ -37,10 +37,17 @@ More detail: [Docs/DeveloperGuide.md](Docs/DeveloperGuide.md).
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| POST | `/api/Auth/login` | Authenticate and receive a JWT |
-| POST | `/api/Auth/register` | Register a new user (creates Member + User) |
+| POST | `/api/Auth/login` | JWT after valid credentials and **verified email** |
+| POST | `/api/Auth/register` | Creates Member + User; sends verification email (no JWT). **Strong password** enforced server-side |
+| POST | `/api/Auth/verify-email` | Body `{ "token" }` from email link |
+| POST | `/api/Auth/forgot-password` | Body `{ "email" }`; always returns success (no email enumeration) |
+| POST | `/api/Auth/reset-password` | Body `{ "token", "newPassword" }`; strong password rules apply |
 
-Passwords are stored with **BCrypt** (work factor 12). `sp_ValidateUser` returns the hash; verification runs in the API. Existing databases with plain-text passwords must **re-register** users or update `PasswordHash` with new BCrypt hashes.
+Passwords: **BCrypt** (work factor 12). Policy: min 8, max 64, no spaces, 1 upper, 1 lower, 1 digit, 1 special from `!@#$%^&*-_=+`.
+
+Configure transactional email under **`Email`**: use **`Provider`** = `MicrosoftGraph` for Microsoft 365 (recommended) or `Smtp` for SMTP relay. Set **`AppPublicUrl`** for verify/reset links. See [Docs/AppSettings.md](Docs/AppSettings.md) and [Docs/Email-Microsoft365-Setup.md](Docs/Email-Microsoft365-Setup.md). If **`Enabled`** is false, verification/reset emails are skipped (logged).
+
+**Production DB:** run `Database/FinTrackDB_Migration_Production_AuthEnhancements.sql` after Phase 3 migration. It sets existing users `IsEmailVerified = 1` so current accounts keep logging in.
 
 ### Groups (`api/Group`)
 
@@ -147,6 +154,12 @@ Database/FinTrackDB_Schema.sql
 
 ```
 Database/FinTrackDB_Migration_Production_Phase3.sql
+```
+
+**Auth (email verification + password reset)** — run after Phase 3:
+
+```
+Database/FinTrackDB_Migration_Production_AuthEnhancements.sql
 ```
 
 The full schema script requires **SQL Server 2016+** and **drops/recreates** `FinTrackDB` — use only for new dev/test environments; read the script header.
