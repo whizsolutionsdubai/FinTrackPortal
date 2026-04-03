@@ -16,15 +16,19 @@ A RESTful Web API for tracking shared and personal expenses within groups. Built
 
 ## Architecture
 
-The solution follows a **layered architecture** with clear separation of concerns:
+The solution follows a **layered architecture** with clear separation of concerns.
+
+![FinTrackPortal layered architecture (wireframe)](Docs/architecture-wireframe.png)
+
+**Solution layout:**
 
 ```
 FinTrackPortal.sln
 │
-├── FinTrackPortal.API            # Controllers, middleware, Program.cs, attachment storage services
+├── FinTrackPortal.API            # Controllers, middleware, Program.cs, infrastructure services (email, attachments)
 ├── FinTrackPortal.Services       # Business logic (service interfaces + implementations)
 ├── FinTrackPortal.Repositories   # Data access via Dapper + stored procedures
-├── FinTrackPortal.Interfaces     # Repository contracts
+├── FinTrackPortal.Interfaces     # Repository contracts (+ IEmailSender, etc.)
 ├── FinTrackPortal.Models         # DTOs, request/response models, entities
 └── FinTrackPortal.Common         # Shared wrappers (ApiResponse<T>, OperationResult<T>)
 ```

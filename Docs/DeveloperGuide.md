@@ -6,6 +6,12 @@
 
 ## 1. Architecture Overview
 
+**Visual wireframe** (kept in repo as `architecture-wireframe.png`):
+
+![FinTrackPortal layered architecture](architecture-wireframe.png)
+
+### Layer diagram (text)
+
 ```
 Client (Swagger / Postman / Mobile / Web)
         │
@@ -35,7 +41,7 @@ Client (Swagger / Postman / Mobile / Web)
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**API-only services (no separate project):** `IAttachmentStorageService` with `BlobStorageService` (Azure) or `LocalFileStorageService` (disk), registered from `AttachmentStorage:Provider` in `Program.cs`.
+**API-only infrastructure (no separate project):** `FinTrackPortal.API/Services/` — `IAttachmentStorageService` (`BlobStorageService` / `LocalFileStorageService`), **`IEmailSender`** (`MicrosoftGraphEmailSender`, `SmtpEmailSender`, `EmailSenderSelector`), registered in `Program.cs` from `appsettings`.
 
 ### Request flow
 
@@ -56,14 +62,14 @@ HTTP Request
 
 | Path | Purpose |
 |------|---------|
-| `FinTrackPortal.API/` | Controllers, `Program.cs`, `Services/` (`BlobStorageService`, `LocalFileStorageService`, `IAttachmentStorageService`) |
+| `FinTrackPortal.API/` | Controllers, `Program.cs`, `Services/` (attachments, **email Graph/SMTP**, `IEmailSender` implementations) |
 | `FinTrackPortal.Services/` | Service interfaces + implementations |
 | `FinTrackPortal.Repositories/` | Dapper repositories |
 | `FinTrackPortal.Interfaces/` | Repository interfaces |
 | `FinTrackPortal.Models/` | Request/response DTOs |
 | `FinTrackPortal.Common/` | `ApiResponse<T>`, `OperationResult<T>` |
 | `Database/FinTrackDB_Schema.sql` | Full database script |
-| `Docs/` | This guide + wireframe |
+| `Docs/` | This guide, [`architecture-wireframe.png`](architecture-wireframe.png), [AppSettings](AppSettings.md), [Email setup](Email-Microsoft365-Setup.md) |
 | `FinTrackPortal.postman_collection.json` | Postman (repo root) |
 | `appsettings.Production.example.json` | Production config template (API project) |
 | `appsettings.Development.example.json` | Local template — copy to `appsettings.Development.json` when that file is missing |
@@ -251,6 +257,7 @@ Do not commit `bin/**` XML files; they are build artifacts.
 | [README.md](../README.md) | Overview, endpoints, configuration summary, Postman |
 | [AppSettings.md](AppSettings.md) | All `appsettings` sections and environment layering |
 | [Email-Microsoft365-Setup.md](Email-Microsoft365-Setup.md) | Microsoft 365 / Graph email + Entra steps |
+| [architecture-wireframe.png](architecture-wireframe.png) | Layered architecture diagram (API, services, repos, SQL, Graph) |
 | `Database/FinTrackDB_Schema.sql` | Authoritative schema |
 | `appsettings.Production.example.json` | Production template |
 | `appsettings.Development.example.json` | Development template |

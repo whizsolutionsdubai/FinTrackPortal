@@ -46,6 +46,22 @@ Without **admin consent**, token acquisition may succeed but **send mail will fa
 
 > **Note:** `Mail.Send` as an **application** permission allows the app to send as **any** user in the tenant that you specify in code. Your app is configured to send only as **`Email:Graph:SenderMailbox`**.
 
+### Visual reference — API permissions in the portal
+
+After Step D, **App registrations** → your app → **API permissions** should look like this in principle:
+
+| What to verify | Expected |
+|----------------|----------|
+| **Configured permissions** | Includes **Microsoft Graph** |
+| **Permission** | **Mail.Send** (or “Send mail as any user”) |
+| **Type** | **Application** (not Delegated) |
+| **Admin consent required** | Yes |
+| **Status** | **Granted for [your organization]** (green) — not “Not granted” |
+
+**Reference screenshot:** `AzureEmailconfiguration.png` in the same folder as this guide (`Docs/`).
+
+![Microsoft Entra — App registration, API permissions: Microsoft Graph application permission Mail.Send with admin consent granted](AzureEmailconfiguration.png)
+
 ### Step E — Choose the sending mailbox
 
 - Use the **User principal name (UPN)** of the mailbox, e.g. `noreply@yourdomain.com` or `yourname@tenant.onmicrosoft.com`.

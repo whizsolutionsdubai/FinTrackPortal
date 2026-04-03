@@ -135,4 +135,4 @@ Host filtering for the Kestrel pipeline. `*` allows any host header; restrict in
 ## Related documentation
 
 - [Email — Microsoft 365 (Graph) setup](Email-Microsoft365-Setup.md) — Entra app registration, permissions, and app configuration steps.
-- [Developer Guide](DeveloperGuide.md) — architecture and configuration overview.
+- [Developer Guide](DeveloperGuide.md) — architecture and configuration overview; diagram: [architecture-wireframe.png](architecture-wireframe.png).
