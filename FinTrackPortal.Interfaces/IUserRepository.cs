@@ -1,4 +1,5 @@
 using FinTrackPortal.Common;
+using FinTrackPortal.Models;
 
 namespace FinTrackPortal.Interfaces
 {
@@ -8,14 +9,14 @@ namespace FinTrackPortal.Interfaces
     /// </summary>
     public interface IUserRepository
     {
-        /// <summary>Validate credentials against sp_ValidateUser. Returns the MemberId on success.</summary>
+        /// <summary>Validate credentials via <c>sp_ValidateUser</c>; returns MemberId on success.</summary>
         Task<OperationResult<long>> ValidateUserAsync(string username, string password);
 
-        /// <summary>Fetch account expiry date via sp_GetExpiry. Used during login to block expired accounts.</summary>
+        /// <summary>Fetch account expiry date via <c>sp_GetExpiry</c>. Used during login to block expired accounts.</summary>
         Task<OperationResult<DateTime?>> GetUserExpiryAsync(string username);
 
         /// <summary>
-        /// Register a new user via sp_RegisterUser.
+        /// Register a new user via <c>sp_RegisterUser</c>.
         /// Creates a Member row and a User row inside a single SQL transaction.
         /// Returns the new MemberId.
         /// </summary>
@@ -25,13 +26,18 @@ namespace FinTrackPortal.Interfaces
 
         Task SaveEmailVerifyTokenAsync(string email, string token, int expiryHours);
 
-        Task<OperationResult<bool>> VerifyEmailWithTokenAsync(string token);
+        /// <summary>Verify email token; returns MemberId on success.</summary>
+        Task<OperationResult<long>> VerifyEmailWithTokenAsync(string token);
 
-        Task<string?> GetMemberNameByEmailAsync(string email);
+        /// <summary>Member display name and id when the email is registered.</summary>
+        Task<MemberEmailLookup?> LookupMemberByEmailAsync(string email);
+
+        /// <summary>For resend verification — includes <see cref="UserEmailVerificationStatus.IsEmailVerified"/>.</summary>
+        Task<UserEmailVerificationStatus?> GetUserEmailVerificationStatusAsync(string email);
 
         Task SavePasswordResetTokenAsync(string email, string token, DateTime expiryUtc);
 
-        /// <summary>Hashes <paramref name="newPlainPassword"/> and updates row if token is valid and not expired.</summary>
-        Task<bool> ResetPasswordWithTokenAsync(string token, string newPlainPassword);
+        /// <summary>Hashes <paramref name="newPlainPassword"/> and updates row if token is valid and not expired. Returns MemberId on success.</summary>
+        Task<OperationResult<long>> ResetPasswordWithTokenAsync(string token, string newPlainPassword);
     }
 }

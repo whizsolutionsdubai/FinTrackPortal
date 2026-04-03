@@ -11,11 +11,16 @@ namespace FinTrackPortal.Services
             string memberName, string userName, string emailAddress,
             string? mobile, string password, string createdBy);
 
-        Task<OperationResult<bool>> VerifyEmailAsync(string token);
+        /// <summary>Returns MemberId on success.</summary>
+        Task<OperationResult<long>> VerifyEmailAsync(string token);
 
-        /// <summary>Always succeeds from API perspective; sends email only if account exists.</summary>
-        Task ForgotPasswordAsync(string email);
+        /// <summary>Always succeeds from API perspective; sends email only if account exists. Returns MemberId when the email was found.</summary>
+        Task<long?> ForgotPasswordAsync(string email);
 
-        Task<OperationResult<bool>> ResetPasswordAsync(string token, string newPassword);
+        /// <summary>Returns MemberId on successful reset.</summary>
+        Task<OperationResult<long>> ResetPasswordAsync(string token, string newPassword);
+
+        /// <summary>Resend verification email if the address exists and is not yet verified. Idempotent.</summary>
+        Task ResendVerificationAsync(string email);
     }
 }

@@ -5,11 +5,14 @@ using FinTrackPortal.Models;
 using FinTrackPortal.Repositories;
 using FinTrackPortal.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
 using System.Text;
+using System.Threading.RateLimiting;
 var builder = WebApplication.CreateBuilder(args);
 
 // ============================================================
@@ -20,6 +23,51 @@ var jwtSettingsSection = builder.Configuration.GetSection("JwtSettings");
 builder.Services.Configure<JwtSettings>(jwtSettingsSection);
 
 builder.Services.Configure<AppEmailOptions>(builder.Configuration.GetSection(AppEmailOptions.SectionName));
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("login", opt =>
+    {
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.PermitLimit = 5;
+        opt.QueueLimit = 0;
+        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+    });
+    options.AddFixedWindowLimiter("register", opt =>
+    {
+        opt.Window = TimeSpan.FromHours(1);
+        opt.PermitLimit = 3;
+        opt.QueueLimit = 0;
+    });
+    options.AddFixedWindowLimiter("forgotpw", opt =>
+    {
+        opt.Window = TimeSpan.FromMinutes(15);
+        opt.PermitLimit = 3;
+        opt.QueueLimit = 0;
+    });
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsJsonAsync(
+            new
+            {
+                success = false,
+                message = "Too many attempts. Please wait and try again.",
+                data = (object?)null,
+                errors = (List<string>?)null
+            },
+            token);
+    };
+});
+
+builder.Services.AddHostedService<SecurityMaintenanceHostedService>();
 builder.Services.AddSingleton<SmtpEmailSender>();
 builder.Services.AddSingleton<MicrosoftGraphEmailSender>();
 builder.Services.AddSingleton<IEmailSender, EmailSenderSelector>();
@@ -92,6 +140,7 @@ builder.Services.AddSwaggerGen(c =>
 // Register dependencies
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IGroupRepository, GroupRepository>();
 builder.Services.AddScoped<IGroupService, GroupService>();
@@ -199,7 +248,7 @@ else
 app.UseSwagger();
 app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "FinTrack WHIZ SOLUTIONS v1"));
 
-
+app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 
 if (string.Equals(app.Configuration["AttachmentStorage:Provider"]?.Trim() ?? "Azure", "Local", StringComparison.OrdinalIgnoreCase))
@@ -233,6 +282,7 @@ app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 app.MapControllers();
 
 app.Run();

@@ -153,11 +153,50 @@ CREATE TABLE [dbo].[Users](
 	[EmailVerifyExpiry] [datetime] NULL,
 	[PasswordResetToken] [nvarchar](200) NULL,
 	[PasswordResetExpiry] [datetime] NULL,
+	[FailedLoginCount] [int] NOT NULL DEFAULT ((0)),
+	[LockoutUntil] [datetime] NULL,
  CONSTRAINT [PK_Users] PRIMARY KEY CLUSTERED
 (
 	[UserID] ASC
 ) ON [PRIMARY]
 ) ON [PRIMARY]
+GO
+
+CREATE TABLE [dbo].[AuditLogs_Archive](
+	[Id] [bigint] NOT NULL,
+	[MemberId] [bigint] NULL,
+	[Action] [nvarchar](50) NOT NULL,
+	[IPAddress] [nvarchar](50) NULL,
+	[UserAgent] [nvarchar](500) NULL,
+	[Success] [bit] NOT NULL,
+	[Details] [nvarchar](500) NULL,
+	[CreatedAt] [datetime] NOT NULL
+) ON [PRIMARY]
+GO
+
+CREATE CLUSTERED INDEX [IX_AuditLogs_Archive_CreatedAt] ON [dbo].[AuditLogs_Archive]([CreatedAt] ASC)
+GO
+
+CREATE TABLE [dbo].[AuditLogs](
+	[Id] [bigint] IDENTITY(1,1) NOT NULL,
+	[MemberId] [bigint] NULL,
+	[Action] [nvarchar](50) NOT NULL,
+	[IPAddress] [nvarchar](50) NULL,
+	[UserAgent] [nvarchar](500) NULL,
+	[Success] [bit] NOT NULL,
+	[Details] [nvarchar](500) NULL,
+	[CreatedAt] [datetime] NOT NULL DEFAULT (GETUTCDATE()),
+ CONSTRAINT [PK_AuditLogs] PRIMARY KEY CLUSTERED
+(
+	[Id] ASC
+) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+
+CREATE NONCLUSTERED INDEX [IX_AuditLogs_MemberId] ON [dbo].[AuditLogs]([MemberId] ASC)
+GO
+
+CREATE NONCLUSTERED INDEX [IX_AuditLogs_CreatedAt] ON [dbo].[AuditLogs]([CreatedAt] ASC)
 GO
 
 CREATE TABLE [dbo].[Groups](
@@ -622,12 +661,15 @@ SET QUOTED_IDENTIFIER ON
 GO
 
 /* Explicit drops (no dynamic SQL) — avoids tool/parser edge cases */
+DROP PROCEDURE IF EXISTS [dbo].[sp_ArchiveAuditLogsRetention];
 DROP PROCEDURE IF EXISTS [dbo].[sp_AddExpense];
 DROP PROCEDURE IF EXISTS [dbo].[sp_AddExpenseAttachment];
 DROP PROCEDURE IF EXISTS [dbo].[sp_AddExpensePayer];
 DROP PROCEDURE IF EXISTS [dbo].[sp_AddExpenseSplit];
 DROP PROCEDURE IF EXISTS [dbo].[sp_AddMemberToGroup];
 DROP PROCEDURE IF EXISTS [dbo].[sp_AddPersonalExpense];
+DROP PROCEDURE IF EXISTS [dbo].[sp_CleanupExpiredTokens];
+DROP PROCEDURE IF EXISTS [dbo].[sp_ClearFailedLogins];
 DROP PROCEDURE IF EXISTS [dbo].[sp_CancelUserSubscription];
 DROP PROCEDURE IF EXISTS [dbo].[sp_CheckUserLimit];
 DROP PROCEDURE IF EXISTS [dbo].[sp_CreateAccount];
@@ -640,6 +682,7 @@ DROP PROCEDURE IF EXISTS [dbo].[sp_DeleteExpenseAttachment];
 DROP PROCEDURE IF EXISTS [dbo].[sp_DeleteExpenseSplits];
 DROP PROCEDURE IF EXISTS [dbo].[sp_DeleteMember];
 DROP PROCEDURE IF EXISTS [dbo].[sp_EditMember];
+DROP PROCEDURE IF EXISTS [dbo].[sp_GetUserEmailVerificationStatus];
 DROP PROCEDURE IF EXISTS [dbo].[sp_GetExpiry];
 DROP PROCEDURE IF EXISTS [dbo].[sp_GetMemberNameByEmail];
 DROP PROCEDURE IF EXISTS [dbo].[sp_GetAttachmentsByMember];
@@ -657,6 +700,7 @@ DROP PROCEDURE IF EXISTS [dbo].[sp_GetUserSubscription];
 DROP PROCEDURE IF EXISTS [dbo].[sp_IsMemberOfGroup];
 DROP PROCEDURE IF EXISTS [dbo].[sp_MoveExpense];
 DROP PROCEDURE IF EXISTS [dbo].[sp_RecordSettlement];
+DROP PROCEDURE IF EXISTS [dbo].[sp_RecordFailedLogin];
 DROP PROCEDURE IF EXISTS [dbo].[sp_RegisterUser];
 DROP PROCEDURE IF EXISTS [dbo].[sp_ResetPassword];
 DROP PROCEDURE IF EXISTS [dbo].[sp_SaveEmailVerifyToken];
@@ -665,6 +709,7 @@ DROP PROCEDURE IF EXISTS [dbo].[sp_UpdateExpense];
 DROP PROCEDURE IF EXISTS [dbo].[sp_UpdatePersonalExpense];
 DROP PROCEDURE IF EXISTS [dbo].[sp_ValidateUser];
 DROP PROCEDURE IF EXISTS [dbo].[sp_VerifyEmail];
+DROP PROCEDURE IF EXISTS [dbo].[sp_WriteAuditLog];
 GO
 
 -- Auth -----------------------------------------------
@@ -674,7 +719,7 @@ CREATE PROCEDURE [dbo].[sp_ValidateUser]
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT u.[MemberId], u.[PasswordHash], u.[IsEmailVerified]
+    SELECT u.[MemberId], u.[PasswordHash], u.[IsEmailVerified], u.[LockoutUntil], u.[FailedLoginCount]
     FROM [dbo].[Users] u
     INNER JOIN [dbo].[Member] m ON m.[MemberId] = u.[MemberId]
     WHERE u.[EmailAddress] = @UserName
@@ -720,13 +765,13 @@ BEGIN
 
     IF @MemberId IS NULL
     BEGIN
-        SELECT CAST(0 AS BIT) AS [Success], N'Invalid or expired link' AS [Message];
+        SELECT CAST(0 AS BIT) AS [Success], N'Invalid or expired link' AS [Message], CAST(NULL AS BIGINT) AS [MemberId];
         RETURN;
     END
 
     IF @Expiry < GETUTCDATE()
     BEGIN
-        SELECT CAST(0 AS BIT) AS [Success], N'Invalid or expired link' AS [Message];
+        SELECT CAST(0 AS BIT) AS [Success], N'Invalid or expired link' AS [Message], CAST(NULL AS BIGINT) AS [MemberId];
         RETURN;
     END
 
@@ -736,7 +781,7 @@ BEGIN
         [EmailVerifyExpiry] = NULL
     WHERE [MemberId] = @MemberId AND [EmailVerifyToken] = @Token;
 
-    SELECT CAST(1 AS BIT) AS [Success], N'Email verified successfully' AS [Message];
+    SELECT CAST(1 AS BIT) AS [Success], N'Email verified successfully' AS [Message], @MemberId AS [MemberId];
 END
 GO
 
@@ -760,15 +805,30 @@ CREATE PROCEDURE [dbo].[sp_ResetPassword]
 AS
 BEGIN
     SET NOCOUNT ON;
+    DECLARE @MemberId BIGINT;
+
+    SELECT @MemberId = [MemberId]
+    FROM [dbo].[Users]
+    WHERE [PasswordResetToken] = @Token
+      AND [PasswordResetExpiry] IS NOT NULL
+      AND [PasswordResetExpiry] > GETUTCDATE()
+      AND [IsActive] = 1;
+
+    IF @MemberId IS NULL
+    BEGIN
+        SELECT 0 AS [RowsUpdated], CAST(NULL AS BIGINT) AS [MemberId];
+        RETURN;
+    END
+
     UPDATE [dbo].[Users]
     SET [PasswordHash] = @NewPasswordHash,
         [PasswordResetToken] = NULL,
-        [PasswordResetExpiry] = NULL
-    WHERE [PasswordResetToken] = @Token
-      AND [PasswordResetExpiry] IS NOT NULL
-      AND [PasswordResetExpiry] > GETUTCDATE();
+        [PasswordResetExpiry] = NULL,
+        [FailedLoginCount] = 0,
+        [LockoutUntil] = NULL
+    WHERE [MemberId] = @MemberId AND [PasswordResetToken] = @Token;
 
-    SELECT @@ROWCOUNT AS [RowsUpdated];
+    SELECT @@ROWCOUNT AS [RowsUpdated], @MemberId AS [MemberId];
 END
 GO
 
@@ -777,7 +837,97 @@ CREATE PROCEDURE [dbo].[sp_GetMemberNameByEmail]
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT TOP (1) m.[MemberName]
+    SELECT TOP (1) m.[MemberName], u.[MemberId]
+    FROM [dbo].[Users] u
+    INNER JOIN [dbo].[Member] m ON m.[MemberId] = u.[MemberId]
+    WHERE u.[EmailAddress] = @Email AND u.[IsActive] = 1 AND m.[IsActive] = 1;
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_RecordFailedLogin]
+    @UserName NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE [dbo].[Users]
+    SET [FailedLoginCount] = [FailedLoginCount] + 1,
+        [LockoutUntil] = CASE
+            WHEN [FailedLoginCount] + 1 >= 5 THEN DATEADD(MINUTE, 15, GETUTCDATE())
+            ELSE [LockoutUntil]
+        END
+    WHERE [EmailAddress] = @UserName AND [IsActive] = 1;
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_ClearFailedLogins]
+    @UserName NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE [dbo].[Users]
+    SET [FailedLoginCount] = 0,
+        [LockoutUntil] = NULL
+    WHERE [EmailAddress] = @UserName AND [IsActive] = 1;
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_CleanupExpiredTokens]
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE [dbo].[Users]
+    SET [EmailVerifyToken] = NULL,
+        [EmailVerifyExpiry] = NULL
+    WHERE [EmailVerifyExpiry] < GETUTCDATE()
+      AND [IsEmailVerified] = 0
+      AND [IsActive] = 1;
+
+    UPDATE [dbo].[Users]
+    SET [PasswordResetToken] = NULL,
+        [PasswordResetExpiry] = NULL
+    WHERE [PasswordResetExpiry] < GETUTCDATE()
+      AND [IsActive] = 1;
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_WriteAuditLog]
+    @MemberId BIGINT = NULL,
+    @Action NVARCHAR(50),
+    @IPAddress NVARCHAR(50) = NULL,
+    @UserAgent NVARCHAR(500) = NULL,
+    @Success BIT,
+    @Details NVARCHAR(500) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO [dbo].[AuditLogs] ([MemberId], [Action], [IPAddress], [UserAgent], [Success], [Details])
+    VALUES (@MemberId, @Action, @IPAddress, @UserAgent, @Success, @Details);
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_ArchiveAuditLogsRetention]
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO [dbo].[AuditLogs_Archive] ([Id], [MemberId], [Action], [IPAddress], [UserAgent], [Success], [Details], [CreatedAt])
+    SELECT [Id], [MemberId], [Action], [IPAddress], [UserAgent], [Success], [Details], [CreatedAt]
+    FROM [dbo].[AuditLogs]
+    WHERE [CreatedAt] < DATEADD(DAY, -90, GETUTCDATE());
+
+    DELETE FROM [dbo].[AuditLogs]
+    WHERE [CreatedAt] < DATEADD(DAY, -90, GETUTCDATE());
+
+    DELETE FROM [dbo].[AuditLogs_Archive]
+    WHERE [CreatedAt] < DATEADD(YEAR, -1, GETUTCDATE());
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_GetUserEmailVerificationStatus]
+    @Email NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP (1) u.[MemberId], m.[MemberName], u.[IsEmailVerified]
     FROM [dbo].[Users] u
     INNER JOIN [dbo].[Member] m ON m.[MemberId] = u.[MemberId]
     WHERE u.[EmailAddress] = @Email AND u.[IsActive] = 1 AND m.[IsActive] = 1;

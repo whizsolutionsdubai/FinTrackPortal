@@ -41,11 +41,25 @@ namespace FinTrackPortal.Repositories
                 if (row == null || string.IsNullOrEmpty(row.PasswordHash))
                     return OperationResult<long>.Failure("User not found or invalid credentials.");
 
+                if (row.LockoutUntil.HasValue && row.LockoutUntil.Value > DateTime.UtcNow)
+                    return OperationResult<long>.Failure("Account is temporarily locked due to too many failed attempts. Please try again later.");
+
                 if (!BCrypt.Net.BCrypt.Verify(password, row.PasswordHash))
+                {
+                    await conn.ExecuteAsync(
+                        "sp_RecordFailedLogin",
+                        new { UserName = username },
+                        commandType: CommandType.StoredProcedure);
                     return OperationResult<long>.Failure("User not found or invalid credentials.");
+                }
 
                 if (!row.IsEmailVerified)
                     return OperationResult<long>.Failure("Please verify your email before logging in.");
+
+                await conn.ExecuteAsync(
+                    "sp_ClearFailedLogins",
+                    new { UserName = username },
+                    commandType: CommandType.StoredProcedure);
 
                 return OperationResult<long>.Success(row.MemberId);
             }
@@ -62,7 +76,6 @@ namespace FinTrackPortal.Repositories
             {
                 using var conn = Connection;
 
-                // Use nullable DateTime to handle NULL from DB
                 var expiryDate = await conn.QueryFirstOrDefaultAsync<DateTime?>("sp_GetExpiry", new { UserName = username }, commandType: CommandType.StoredProcedure);
 
                 if (expiryDate == null)
@@ -116,7 +129,7 @@ namespace FinTrackPortal.Repositories
                 commandType: CommandType.StoredProcedure);
         }
 
-        public async Task<OperationResult<bool>> VerifyEmailWithTokenAsync(string token)
+        public async Task<OperationResult<long>> VerifyEmailWithTokenAsync(string token)
         {
             try
             {
@@ -127,28 +140,39 @@ namespace FinTrackPortal.Repositories
                     commandType: CommandType.StoredProcedure);
 
                 if (row == null)
-                    return OperationResult<bool>.Failure("Invalid or expired link.");
+                    return OperationResult<long>.Failure("Invalid or expired link.");
 
                 if (!row.Success)
-                    return OperationResult<bool>.Failure(row.Message ?? "Invalid or expired link.");
+                    return OperationResult<long>.Failure(row.Message ?? "Invalid or expired link.");
 
-                return OperationResult<bool>.Success(true);
+                if (!row.MemberId.HasValue)
+                    return OperationResult<long>.Failure("Invalid or expired link.");
+
+                return OperationResult<long>.Success(row.MemberId.Value);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error verifying email token");
-                return OperationResult<bool>.Failure(ex.Message);
+                return OperationResult<long>.Failure(ex.Message);
             }
         }
 
-        public async Task<string?> GetMemberNameByEmailAsync(string email)
+        public async Task<MemberEmailLookup?> LookupMemberByEmailAsync(string email)
         {
             using var conn = Connection;
-            var scalar = await conn.ExecuteScalarAsync<string>(
+            return await conn.QueryFirstOrDefaultAsync<MemberEmailLookup>(
                 "sp_GetMemberNameByEmail",
                 new { Email = email },
                 commandType: CommandType.StoredProcedure);
-            return scalar;
+        }
+
+        public async Task<UserEmailVerificationStatus?> GetUserEmailVerificationStatusAsync(string email)
+        {
+            using var conn = Connection;
+            return await conn.QueryFirstOrDefaultAsync<UserEmailVerificationStatus>(
+                "sp_GetUserEmailVerificationStatus",
+                new { Email = email },
+                commandType: CommandType.StoredProcedure);
         }
 
         public async Task SavePasswordResetTokenAsync(string email, string token, DateTime expiryUtc)
@@ -160,14 +184,18 @@ namespace FinTrackPortal.Repositories
                 commandType: CommandType.StoredProcedure);
         }
 
-        public async Task<bool> ResetPasswordWithTokenAsync(string token, string newPlainPassword)
+        public async Task<OperationResult<long>> ResetPasswordWithTokenAsync(string token, string newPlainPassword)
         {
             using var conn = Connection;
-            var rows = await conn.QuerySingleAsync<int>(
+            var row = await conn.QueryFirstOrDefaultAsync<ResetPasswordRow>(
                 "sp_ResetPassword",
                 new { Token = token, NewPasswordHash = HashPassword(newPlainPassword) },
                 commandType: CommandType.StoredProcedure);
-            return rows > 0;
+
+            if (row == null || row.RowsUpdated <= 0 || !row.MemberId.HasValue)
+                return OperationResult<long>.Failure("This reset link has expired or is invalid. Please request a new one.");
+
+            return OperationResult<long>.Success(row.MemberId.Value);
         }
 
         private static string HashPassword(string password)
@@ -178,12 +206,21 @@ namespace FinTrackPortal.Repositories
             public long MemberId { get; set; }
             public string? PasswordHash { get; set; }
             public bool IsEmailVerified { get; set; }
+            public DateTime? LockoutUntil { get; set; }
+            public int FailedLoginCount { get; set; }
         }
 
         private sealed class VerifyEmailRow
         {
             public bool Success { get; set; }
             public string? Message { get; set; }
+            public long? MemberId { get; set; }
+        }
+
+        private sealed class ResetPasswordRow
+        {
+            public int RowsUpdated { get; set; }
+            public long? MemberId { get; set; }
         }
     }
 }

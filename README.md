@@ -44,10 +44,13 @@ More detail: [Docs/DeveloperGuide.md](Docs/DeveloperGuide.md). **Configuration:*
 | POST | `/api/Auth/login` | JWT after valid credentials and **verified email** |
 | POST | `/api/Auth/register` | Creates Member + User; sends verification email (no JWT). **Strong password** enforced server-side |
 | POST | `/api/Auth/verify-email` | Body `{ "token" }` from email link |
+| POST | `/api/Auth/resend-verification` | Body `{ "email" }`; generic success; rate-limited (same window as forgot-password) |
 | POST | `/api/Auth/forgot-password` | Body `{ "email" }`; always returns success (no email enumeration) |
 | POST | `/api/Auth/reset-password` | Body `{ "token", "newPassword" }`; strong password rules apply |
 
-Passwords: **BCrypt** (work factor 12). Policy: min 8, max 64, no spaces, 1 upper, 1 lower, 1 digit, 1 special from `!@#$%^&*-_=+`.
+**Phase 2 security (rate limits, lockout, audit, token cleanup):** apply **`Database/FinTrackDB_Migration_Production_SecurityPhase2.sql`** after auth migrations. Login is limited to **5 requests/minute/IP**; register **3/hour/IP**; forgot-password and resend-verification **3/15 minutes/IP** (HTTP **429** when exceeded). After **5 failed password attempts**, the account is **locked for 15 minutes**. Auth events are written to **`AuditLogs`**; a background job runs **`sp_CleanupExpiredTokens`** hourly and audit retention (**`sp_ArchiveAuditLogsRetention`**) daily. **`ForwardedHeaders`** is enabled for correct client IP behind Azure/nginx.
+
+Passwords: **BCrypt** (work factor 12, above the spec minimum of 10). Policy: min 8, max 64, no spaces, 1 upper, 1 lower, 1 digit, 1 special from `!@#$%^&*-_=+`.
 
 Configure transactional email under **`Email`**: use **`Provider`** = `MicrosoftGraph` for Microsoft 365 (recommended) or `Smtp` for SMTP relay. Set **`AppPublicUrl`** for verify/reset links. See [Docs/AppSettings.md](Docs/AppSettings.md) and [Docs/Email-Microsoft365-Setup.md](Docs/Email-Microsoft365-Setup.md). If **`Enabled`** is false, verification/reset emails are skipped (logged).
 

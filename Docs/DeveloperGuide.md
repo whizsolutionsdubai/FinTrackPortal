@@ -107,6 +107,10 @@ Loaded from `JwtSettings` in `Program.cs`. Signing key must be non-empty; use a 
 
 `Email` binds to `AppEmailOptions`. **`Provider`** `MicrosoftGraph` uses Entra app registration + **`Mail.Send`** (application permission) and **`Graph:SenderMailbox`**. See [Email-Microsoft365-Setup.md](Email-Microsoft365-Setup.md).
 
+### Security Phase 2 (FinShare hardening spec)
+
+After Phase 1 auth columns exist, run **`Database/FinTrackDB_Migration_Production_SecurityPhase2.sql`** (or use an updated **`FinTrackDB_Schema.sql`** baseline). This adds **`FailedLoginCount` / `LockoutUntil`**, **`AuditLogs`** + **`AuditLogs_Archive`**, lockout and audit stored procedures, **`sp_CleanupExpiredTokens`**, and **`sp_GetUserEmailVerificationStatus`**. The API uses **`SecurityMaintenanceHostedService`**, **`IAuditLogRepository`**, ASP.NET **rate limiting**, and **`UseForwardedHeaders`**. Spec source: `Docs/Prompt/FinShare_SecurityHardening_V3.1.pdf` and master task list V4.
+
 ---
 
 ## 4. XML documentation & Swagger
