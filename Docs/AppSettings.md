@@ -23,6 +23,8 @@ ASP.NET Core loads settings in this order (later sources override earlier ones):
 
 If `appsettings.Development.json` or `appsettings.Production.json` is missing after clone, copy the matching **`.example`** file and fill in values.
 
+**GitHub push protection:** Never commit real **`Email:Graph:ClientSecret`**, database passwords, or JWT keys. This repo **gitignores** `appsettings.Development.json` and `appsettings.Production.json` so they stay local. If either file was ever committed, remove it from history (e.g. `git filter-branch` / `git filter-repo`) and **rotate** any exposed Entra app secret or password.
+
 ---
 
 ## 2. `ConnectionStrings`
