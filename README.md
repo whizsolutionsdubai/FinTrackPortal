@@ -40,6 +40,8 @@ More detail: [Docs/DeveloperGuide.md](Docs/DeveloperGuide.md).
 | POST | `/api/Auth/login` | Authenticate and receive a JWT |
 | POST | `/api/Auth/register` | Register a new user (creates Member + User) |
 
+Passwords are stored with **BCrypt** (work factor 12). `sp_ValidateUser` returns the hash; verification runs in the API. Existing databases with plain-text passwords must **re-register** users or update `PasswordHash` with new BCrypt hashes.
+
 ### Groups (`api/Group`)
 
 | Method | Route | Description |
@@ -55,17 +57,22 @@ More detail: [Docs/DeveloperGuide.md](Docs/DeveloperGuide.md).
 | Method | Route | Description |
 |--------|-------|-------------|
 | POST | `/api/Expense/add` | Add a group expense with equal or custom split |
-| PUT | `/api/Expense/edit` | Edit an existing group expense |
+| PUT | `/api/Expense/edit` | Edit a group expense (optional `ExpenseCategory`, `ForReference` on the request body) |
 | DELETE | `/api/Expense/delete/{expenseId}` | Soft-delete an expense |
 | GET | `/api/Expense/group/{groupId}` | Get expenses for a group |
-| POST | `/api/Expense/personal` | Add a personal (non-group) expense |
-| GET | `/api/Expense/personal` | Get personal expenses for logged-in user |
+| POST | `/api/Expense/personal` | Add a personal/office expense (optional `ExpenseCategory`, `ForReference`, `ExpenseDate`, `AccountId`) |
+| GET | `/api/Expense/personal` | Get personal/office expenses (optional query `?category=Office` or `Personal`) |
+| GET | `/api/Expense/personal/my` | Same as above (alias for clients expecting `/personal/my`) |
+| PUT | `/api/Expense/personal/edit` | Update a personal/office expense |
 | POST | `/api/Expense/move` | Move an expense to a different group |
+| POST | `/api/Expense/payer` | Record a payer amount for multi-payer expenses |
+| GET | `/api/Expense/{expenseId}/payers` | List payers and amounts for an expense |
 | GET | `/api/Expense/accounts/{userId}` | List account labels for a user |
 | POST | `/api/Expense/accounts` | Create a new account label |
 | DELETE | `/api/Expense/accounts/{accountId}` | Soft-delete an account label |
+| GET | `/api/Expense/attachments/my` | All receipts you uploaded, with linked expense details |
 | POST | `/api/Expense/{expenseId}/attachment` | Upload a receipt/invoice (JPG, PNG, PDF); **form field name: `file`** |
-| GET | `/api/Expense/{expenseId}/attachments` | List attachments for an expense |
+| GET | `/api/Expense/{expenseId}/attachments` | List attachments for an expense (each row includes `expenseId`) |
 | DELETE | `/api/Expense/attachment/{attachmentId}` | Soft-delete an attachment |
 
 ### Settlements (`api/Settlement`)
@@ -136,7 +143,15 @@ Full script (fresh database + sample data + stored procedures):
 Database/FinTrackDB_Schema.sql
 ```
 
-Requires **SQL Server 2016+** (uses `DROP PROCEDURE IF EXISTS` in the script). Run the **entire** script for a new environment; it drops and recreates `FinTrackDB` by default — see script header warnings.
+**Existing production database** (no drop — adds columns, `ExpensePayer`, and updates procedures):
+
+```
+Database/FinTrackDB_Migration_Production_Phase3.sql
+```
+
+The full schema script requires **SQL Server 2016+** and **drops/recreates** `FinTrackDB` — use only for new dev/test environments; read the script header.
+
+For **production**, use **`FinTrackDB_Migration_Production_Phase3.sql`**: back up first, set `USE [YourDatabase]` if the name is not `FinTrackDB`, run the migration, then deploy the API. After **`sp_ValidateUser`** changes, each user needs a **BCrypt** `PasswordHash` (re-register, password-reset flow, or a controlled `UPDATE`).
 
 ### Tables (high level)
 
@@ -153,6 +168,7 @@ Requires **SQL Server 2016+** (uses `DROP PROCEDURE IF EXISTS` in the script). R
 | `UserSubscription` | Member subscriptions (`MemberId`) |
 | `ExpenseAccount` | User-defined account labels |
 | `ExpenseAttachment` | Metadata for files (URL points to local `/attachments` or Azure blob) |
+| `ExpensePayer` | Optional split of who paid how much on a single expense (multi-payer) |
 | `Organisation` / `CostCenter` | Corporate foundation (reserved for future use) |
 
 Stored procedures are documented inline in `FinTrackDB_Schema.sql` and summarized in the Developer Guide.
@@ -197,11 +213,23 @@ Files in the **repository root**:
 
 | File | Purpose |
 |------|---------|
-| `FinTrackPortal.postman_collection.json` | All modules + tests |
+| `FinTrackPortal.postman_collection.json` | All modules + **Tests** tab scripts |
 | `FinTrackPortal.postman_environment_Local.json` | `baseUrl` for local HTTPS |
 | `FinTrackPortal.postman_environment_Production.json` | Production `baseUrl` template |
 
-Import the collection and one environment, set **`loginEmail`** / **`loginPassword`**, then run **Auth → Login** to save the JWT.
+1. Import the collection and one environment; set **`loginEmail`** and **`loginPassword`**.
+2. Run **Auth → Login** — saves **`token`**, **`memberId`**, and **`email`** as collection variables (Bearer auth is inherited).
+3. Set **`groupId`** (e.g. copy from **Group → My Groups**) and align **`paidBy`** / **`members`** in expense JSON with real member IDs from your database.
+
+**Expense attachments (receipts)** — minimal flow:
+
+1. **Expense → Add Expense (Equal Split)** *or* **Personal → Add Personal Expense** — both store **`expenseId`** in collection variables on success.
+2. **Expense → Upload expense attachment** — Body **form-data**: key **`file`**, type **File**, pick `.jpg` / `.png` / `.pdf`. On success, **`attachmentId`** is saved for delete.
+3. **List expense attachments** then **Delete expense attachment** (or use the negative tests: no file, wrong extension).
+
+**Run the whole suite:** Collection → **Run** → select folders (Auth, Group, Expense, Settlement, Subscription, Member, Personal, Security Tests) → **Run**. You must still choose a file manually for **Upload expense attachment** when that request runs; set **`groupId`** and member IDs before a full run.
+
+The collection **description** (View → Show description) has the same steps in more detail.
 
 ## CI/CD
 

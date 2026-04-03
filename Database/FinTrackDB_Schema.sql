@@ -7,7 +7,7 @@
     Authors : Joseph Xavier & Abhilash Thomas
 
     Exported from production and cleaned for portability.
-    Includes: 13 tables, 34 stored procedures, seed + sample data.
+    Includes: 14 tables, 38 stored procedures, seed + sample data (BCrypt sample passwords; re-run script for fresh DB).
 
     WARNING: This script DROPS and RECREATES the database from scratch.
     All existing data will be lost. Use only for fresh installs or dev/test.
@@ -18,6 +18,8 @@
       1. SSMS → connect to your instance → New Query → paste ENTIRE file → Execute (F5)
       2. Do not run only the procedure section unless FinTrackDB already exists with tables.
       3. Update the connection string in appsettings.json
+
+    Production (existing DB, no drop): use FinTrackDB_Migration_Production_Phase3.sql instead.
 */
 
 USE [master]
@@ -278,6 +280,8 @@ CREATE TABLE [dbo].[Expense](
 	[SplitType] [nvarchar](10) NULL,
 	[AccountId] [bigint] NULL,
 	[CostCenterId] [bigint] NULL,
+	[ExpenseCategory] [nvarchar](20) NULL,
+	[ForReference] [nvarchar](200) NULL,
  CONSTRAINT [PK__Expense__1445CFD36CB8A42F] PRIMARY KEY CLUSTERED
 (
 	[ExpenseId] ASC
@@ -338,6 +342,30 @@ CREATE TABLE [dbo].[ExpenseAttachment](
 ) ON [PRIMARY]
 GO
 
+CREATE TABLE [dbo].[ExpensePayer](
+	[PayerId] [bigint] IDENTITY(1,1) NOT NULL,
+	[ExpenseId] [bigint] NOT NULL,
+	[MemberId] [bigint] NOT NULL,
+	[AmountPaid] [decimal](10, 2) NOT NULL,
+	[CreatedDate] [datetime2](7) NOT NULL DEFAULT GETDATE(),
+ CONSTRAINT [PK_ExpensePayer] PRIMARY KEY CLUSTERED
+(
+	[PayerId] ASC
+) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+
+ALTER TABLE [dbo].[ExpensePayer] WITH CHECK ADD CONSTRAINT [FK_ExpensePayer_Expense] FOREIGN KEY([ExpenseId])
+REFERENCES [dbo].[Expense] ([ExpenseId])
+GO
+
+ALTER TABLE [dbo].[ExpensePayer] WITH CHECK ADD CONSTRAINT [FK_ExpensePayer_Member] FOREIGN KEY([MemberId])
+REFERENCES [dbo].[Member] ([MemberId])
+GO
+
+CREATE NONCLUSTERED INDEX [IX_ExpensePayer_ExpenseId] ON [dbo].[ExpensePayer]([ExpenseId] ASC)
+GO
+
 -- =============================================
 -- SAMPLE DATA
 -- =============================================
@@ -357,9 +385,9 @@ GO
 
 SET IDENTITY_INSERT [dbo].[Users] ON
 GO
-INSERT [dbo].[Users] ([UserID], [UserName], [EmailAddress], [Mobile], [PasswordHash], [MemberId], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [ExpiryDate]) VALUES (1, N'abhilash2006@gmail.com', N'abhilash2006@gmail.com', N'0505743855', N'sys', 1, CAST(N'2026-03-12T00:00:00.0000000' AS DateTime2), NULL, N'admin', NULL, 1, CAST(N'2028-12-12T00:00:00.000' AS DateTime))
+INSERT [dbo].[Users] ([UserID], [UserName], [EmailAddress], [Mobile], [PasswordHash], [MemberId], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [ExpiryDate]) VALUES (1, N'abhilash2006@gmail.com', N'abhilash2006@gmail.com', N'0505743855', N'$2a$12$Jd7ktOon08psnB0Y/eiftuNjNATQP62ntc3NOq9LmwcYpG1VtUfZO', 1, CAST(N'2026-03-12T00:00:00.0000000' AS DateTime2), NULL, N'admin', NULL, 1, CAST(N'2028-12-12T00:00:00.000' AS DateTime))
 GO
-INSERT [dbo].[Users] ([UserID], [UserName], [EmailAddress], [Mobile], [PasswordHash], [MemberId], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [ExpiryDate]) VALUES (2, N'thomas@sys.com', N'thomas@sys.com', N'050785748', N'P@ssw0rd', 4, CAST(N'2026-04-01T12:12:51.9400000' AS DateTime2), NULL, N'thomas@sys.com', NULL, 1, CAST(N'2027-04-01T19:12:51.930' AS DateTime))
+INSERT [dbo].[Users] ([UserID], [UserName], [EmailAddress], [Mobile], [PasswordHash], [MemberId], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [ExpiryDate]) VALUES (2, N'thomas@sys.com', N'thomas@sys.com', N'050785748', N'$2a$12$4FLDWdNBQajkhimosEG3CeECJ5UxgvbzFurybmdjVedNO16vie1vq', 4, CAST(N'2026-04-01T12:12:51.9400000' AS DateTime2), NULL, N'thomas@sys.com', NULL, 1, CAST(N'2027-04-01T19:12:51.930' AS DateTime))
 GO
 SET IDENTITY_INSERT [dbo].[Users] OFF
 GO
@@ -393,15 +421,15 @@ GO
 
 SET IDENTITY_INSERT [dbo].[Expense] ON
 GO
-INSERT [dbo].[Expense] ([ExpenseId], [GroupId], [Description], [Amount], [PaidBy], [ExpenseDate], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [SplitType], [AccountId], [CostCenterId]) VALUES (1, 1, N'Dinner', CAST(300.00 AS Decimal(18, 2)), 1, CAST(N'2026-04-01T06:29:37.8500000' AS DateTime2), CAST(N'2026-04-01T06:29:37.8500000' AS DateTime2), NULL, N'abhilash2006@gmail.com', NULL, 1, N'Equal', NULL, NULL)
+INSERT [dbo].[Expense] ([ExpenseId], [GroupId], [Description], [Amount], [PaidBy], [ExpenseDate], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [SplitType], [AccountId], [CostCenterId], [ExpenseCategory], [ForReference]) VALUES (1, 1, N'Dinner', CAST(300.00 AS Decimal(18, 2)), 1, CAST(N'2026-04-01T06:29:37.8500000' AS DateTime2), CAST(N'2026-04-01T06:29:37.8500000' AS DateTime2), NULL, N'abhilash2006@gmail.com', NULL, 1, N'Equal', NULL, NULL, NULL, NULL)
 GO
-INSERT [dbo].[Expense] ([ExpenseId], [GroupId], [Description], [Amount], [PaidBy], [ExpenseDate], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [SplitType], [AccountId], [CostCenterId]) VALUES (2, 1, N'Lunch', CAST(300.00 AS Decimal(18, 2)), 1, CAST(N'2026-04-01T06:29:54.4033333' AS DateTime2), CAST(N'2026-04-01T06:29:54.4033333' AS DateTime2), NULL, N'abhilash2006@gmail.com', NULL, 1, N'Equal', NULL, NULL)
+INSERT [dbo].[Expense] ([ExpenseId], [GroupId], [Description], [Amount], [PaidBy], [ExpenseDate], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [SplitType], [AccountId], [CostCenterId], [ExpenseCategory], [ForReference]) VALUES (2, 1, N'Lunch', CAST(300.00 AS Decimal(18, 2)), 1, CAST(N'2026-04-01T06:29:54.4033333' AS DateTime2), CAST(N'2026-04-01T06:29:54.4033333' AS DateTime2), NULL, N'abhilash2006@gmail.com', NULL, 1, N'Equal', NULL, NULL, NULL, NULL)
 GO
-INSERT [dbo].[Expense] ([ExpenseId], [GroupId], [Description], [Amount], [PaidBy], [ExpenseDate], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [SplitType], [AccountId], [CostCenterId]) VALUES (3, 1, N'Brakefast', CAST(300.00 AS Decimal(18, 2)), 1, CAST(N'2026-04-01T06:30:07.7366667' AS DateTime2), CAST(N'2026-04-01T06:30:07.7366667' AS DateTime2), NULL, N'abhilash2006@gmail.com', NULL, 1, N'Equal', NULL, NULL)
+INSERT [dbo].[Expense] ([ExpenseId], [GroupId], [Description], [Amount], [PaidBy], [ExpenseDate], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [SplitType], [AccountId], [CostCenterId], [ExpenseCategory], [ForReference]) VALUES (3, 1, N'Brakefast', CAST(300.00 AS Decimal(18, 2)), 1, CAST(N'2026-04-01T06:30:07.7366667' AS DateTime2), CAST(N'2026-04-01T06:30:07.7366667' AS DateTime2), NULL, N'abhilash2006@gmail.com', NULL, 1, N'Equal', NULL, NULL, NULL, NULL)
 GO
-INSERT [dbo].[Expense] ([ExpenseId], [GroupId], [Description], [Amount], [PaidBy], [ExpenseDate], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [SplitType], [AccountId], [CostCenterId]) VALUES (4, NULL, N'Coffee', CAST(15.50 AS Decimal(18, 2)), 1, CAST(N'2026-04-01T06:31:04.5966667' AS DateTime2), CAST(N'2026-04-01T06:31:04.5966667' AS DateTime2), NULL, N'abhilash2006@gmail.com', NULL, 1, N'Equal', NULL, NULL)
+INSERT [dbo].[Expense] ([ExpenseId], [GroupId], [Description], [Amount], [PaidBy], [ExpenseDate], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [SplitType], [AccountId], [CostCenterId], [ExpenseCategory], [ForReference]) VALUES (4, NULL, N'Coffee', CAST(15.50 AS Decimal(18, 2)), 1, CAST(N'2026-04-01T06:31:04.5966667' AS DateTime2), CAST(N'2026-04-01T06:31:04.5966667' AS DateTime2), NULL, N'abhilash2006@gmail.com', NULL, 1, N'Equal', NULL, NULL, N'Personal', NULL)
 GO
-INSERT [dbo].[Expense] ([ExpenseId], [GroupId], [Description], [Amount], [PaidBy], [ExpenseDate], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [SplitType], [AccountId], [CostCenterId]) VALUES (5, NULL, N'Bread', CAST(25.50 AS Decimal(18, 2)), 1, CAST(N'2026-04-01T06:31:52.8400000' AS DateTime2), CAST(N'2026-04-01T06:31:52.8400000' AS DateTime2), NULL, N'abhilash2006@gmail.com', NULL, 1, N'Equal', NULL, NULL)
+INSERT [dbo].[Expense] ([ExpenseId], [GroupId], [Description], [Amount], [PaidBy], [ExpenseDate], [CreatedDate], [ModifiedDate], [CreatedBy], [ModifiedBy], [IsActive], [SplitType], [AccountId], [CostCenterId], [ExpenseCategory], [ForReference]) VALUES (5, NULL, N'Bread', CAST(25.50 AS Decimal(18, 2)), 1, CAST(N'2026-04-01T06:31:52.8400000' AS DateTime2), CAST(N'2026-04-01T06:31:52.8400000' AS DateTime2), NULL, N'abhilash2006@gmail.com', NULL, 1, N'Equal', NULL, NULL, N'Personal', NULL)
 GO
 SET IDENTITY_INSERT [dbo].[Expense] OFF
 GO
@@ -591,6 +619,7 @@ GO
 /* Explicit drops (no dynamic SQL) — avoids tool/parser edge cases */
 DROP PROCEDURE IF EXISTS [dbo].[sp_AddExpense];
 DROP PROCEDURE IF EXISTS [dbo].[sp_AddExpenseAttachment];
+DROP PROCEDURE IF EXISTS [dbo].[sp_AddExpensePayer];
 DROP PROCEDURE IF EXISTS [dbo].[sp_AddExpenseSplit];
 DROP PROCEDURE IF EXISTS [dbo].[sp_AddMemberToGroup];
 DROP PROCEDURE IF EXISTS [dbo].[sp_AddPersonalExpense];
@@ -607,7 +636,9 @@ DROP PROCEDURE IF EXISTS [dbo].[sp_DeleteExpenseSplits];
 DROP PROCEDURE IF EXISTS [dbo].[sp_DeleteMember];
 DROP PROCEDURE IF EXISTS [dbo].[sp_EditMember];
 DROP PROCEDURE IF EXISTS [dbo].[sp_GetExpiry];
+DROP PROCEDURE IF EXISTS [dbo].[sp_GetAttachmentsByMember];
 DROP PROCEDURE IF EXISTS [dbo].[sp_GetExpenseAttachments];
+DROP PROCEDURE IF EXISTS [dbo].[sp_GetExpensePayers];
 DROP PROCEDURE IF EXISTS [dbo].[sp_GetExpensesByGroup];
 DROP PROCEDURE IF EXISTS [dbo].[sp_GetGroupMembers];
 DROP PROCEDURE IF EXISTS [dbo].[sp_GetGroupSummary];
@@ -622,22 +653,21 @@ DROP PROCEDURE IF EXISTS [dbo].[sp_MoveExpense];
 DROP PROCEDURE IF EXISTS [dbo].[sp_RecordSettlement];
 DROP PROCEDURE IF EXISTS [dbo].[sp_RegisterUser];
 DROP PROCEDURE IF EXISTS [dbo].[sp_UpdateExpense];
+DROP PROCEDURE IF EXISTS [dbo].[sp_UpdatePersonalExpense];
 DROP PROCEDURE IF EXISTS [dbo].[sp_ValidateUser];
 GO
 
 -- Auth -----------------------------------------------
 
 CREATE PROCEDURE [dbo].[sp_ValidateUser]
-    @UserName NVARCHAR(100),
-    @PasswordHash NVARCHAR(255)
+    @UserName NVARCHAR(255)
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT m.MemberId
+    SELECT u.MemberId, u.PasswordHash
     FROM [dbo].[Users] u
     INNER JOIN [dbo].[Member] m ON m.MemberId = u.MemberId
     WHERE u.EmailAddress = @UserName
-      AND u.PasswordHash = @PasswordHash
       AND u.IsActive = 1
       AND m.IsActive = 1;
 END
@@ -881,8 +911,8 @@ CREATE PROCEDURE [dbo].[sp_AddExpense]
 AS
 BEGIN
     SET NOCOUNT ON;
-    INSERT INTO [dbo].[Expense] (GroupId, [Description], Amount, PaidBy, SplitType, AccountId, CreatedBy, CreatedDate, IsActive)
-    VALUES (@GroupId, @Description, @Amount, @PaidBy, @SplitType, @AccountId, @CreatedBy, GETDATE(), 1);
+    INSERT INTO [dbo].[Expense] (GroupId, [Description], Amount, PaidBy, ExpenseDate, SplitType, AccountId, CreatedBy, CreatedDate, IsActive)
+    VALUES (@GroupId, @Description, @Amount, @PaidBy, CAST(GETDATE() AS DATE), @SplitType, @AccountId, @CreatedBy, GETDATE(), 1);
     SELECT SCOPE_IDENTITY();
 END
 GO
@@ -902,21 +932,25 @@ GO
 
 CREATE PROCEDURE [dbo].[sp_UpdateExpense]
     @ExpenseId   BIGINT,
-    @Description NVARCHAR(250),
-    @Amount      DECIMAL(18,2),
-    @PaidBy      BIGINT,
-    @SplitType   NVARCHAR(10) = 'Equal',
+    @Description NVARCHAR(250) = NULL,
+    @Amount      DECIMAL(18,2) = NULL,
+    @PaidBy      BIGINT = NULL,
+    @SplitType   NVARCHAR(10) = NULL,
     @ModifiedBy  NVARCHAR(100),
-    @AccountId   BIGINT = NULL
+    @AccountId   BIGINT = NULL,
+    @ExpenseCategory NVARCHAR(20) = NULL,
+    @ForReference NVARCHAR(200) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
     UPDATE [dbo].[Expense]
-    SET [Description] = @Description,
-        Amount        = @Amount,
-        PaidBy        = @PaidBy,
-        SplitType     = @SplitType,
-        AccountId     = @AccountId,
+    SET [Description] = ISNULL(@Description, [Description]),
+        Amount        = ISNULL(@Amount, Amount),
+        PaidBy        = ISNULL(@PaidBy, PaidBy),
+        SplitType     = ISNULL(@SplitType, SplitType),
+        AccountId     = ISNULL(@AccountId, AccountId),
+        ExpenseCategory = ISNULL(@ExpenseCategory, ExpenseCategory),
+        ForReference  = ISNULL(@ForReference, ForReference),
         ModifiedBy    = @ModifiedBy,
         ModifiedDate  = GETDATE()
     WHERE ExpenseId = @ExpenseId AND IsActive = 1;
@@ -951,7 +985,8 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SELECT e.ExpenseId, e.GroupId, e.[Description], e.Amount,
-           e.PaidBy, m.MemberName AS PaidByName, e.SplitType, e.CreatedDate
+           e.PaidBy, m.MemberName AS PaidByName, e.SplitType,
+           e.ExpenseDate, e.ExpenseCategory, e.ForReference, e.CreatedDate
     FROM [dbo].[Expense] e
     INNER JOIN [dbo].[Member] m ON m.MemberId = e.PaidBy
     WHERE e.GroupId = @GroupId AND e.IsActive = 1
@@ -963,27 +998,79 @@ CREATE PROCEDURE [dbo].[sp_AddPersonalExpense]
     @Description NVARCHAR(250),
     @Amount DECIMAL(18,2),
     @MemberId BIGINT,
-    @CreatedBy NVARCHAR(100)
+    @CreatedBy NVARCHAR(100),
+    @ExpenseDate DATE = NULL,
+    @AccountId BIGINT = NULL,
+    @ExpenseCategory NVARCHAR(20) = NULL,
+    @ForReference NVARCHAR(200) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
-    INSERT INTO [dbo].[Expense] (GroupId, [Description], Amount, PaidBy, SplitType, CreatedBy, CreatedDate, IsActive)
-    VALUES (NULL, @Description, @Amount, @MemberId, 'Equal', @CreatedBy, GETDATE(), 1);
-    SELECT SCOPE_IDENTITY();
+    INSERT INTO [dbo].[Expense]
+        (GroupId, [Description], Amount, PaidBy, ExpenseDate, SplitType, AccountId,
+         ExpenseCategory, ForReference, CreatedBy, CreatedDate, IsActive)
+    VALUES
+        (NULL, @Description, @Amount, @MemberId,
+         ISNULL(@ExpenseDate, CAST(GETDATE() AS DATE)), 'Equal', @AccountId,
+         ISNULL(@ExpenseCategory, N'Personal'), @ForReference, @CreatedBy, GETDATE(), 1);
+    SELECT SCOPE_IDENTITY() AS ExpenseId;
 END
 GO
 
 CREATE PROCEDURE [dbo].[sp_GetPersonalExpenses]
-    @MemberId BIGINT
+    @MemberId BIGINT,
+    @Category NVARCHAR(20) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT e.ExpenseId, e.GroupId, e.[Description], e.Amount,
-           e.PaidBy, m.MemberName AS PaidByName, e.SplitType, e.CreatedDate
+    SELECT
+        e.ExpenseId,
+        e.GroupId,
+        e.[Description],
+        e.Amount,
+        e.PaidBy,
+        m.MemberName AS PaidByName,
+        e.SplitType,
+        e.ExpenseDate,
+        e.ExpenseCategory,
+        e.ForReference,
+        a.AccountName,
+        e.CreatedDate
     FROM [dbo].[Expense] e
     INNER JOIN [dbo].[Member] m ON m.MemberId = e.PaidBy
+    LEFT JOIN [dbo].[ExpenseAccount] a ON e.AccountId = a.AccountId
     WHERE e.GroupId IS NULL AND e.PaidBy = @MemberId AND e.IsActive = 1
-    ORDER BY e.CreatedDate DESC;
+      AND (@Category IS NULL OR e.ExpenseCategory = @Category)
+    ORDER BY e.ExpenseDate DESC, e.CreatedDate DESC;
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_UpdatePersonalExpense]
+    @ExpenseId BIGINT,
+    @MemberId BIGINT,
+    @Description NVARCHAR(250),
+    @Amount DECIMAL(18,2),
+    @ExpenseDate DATE = NULL,
+    @AccountId BIGINT = NULL,
+    @ExpenseCategory NVARCHAR(20) = NULL,
+    @ForReference NVARCHAR(200) = NULL,
+    @ModifiedBy NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE [dbo].[Expense]
+    SET [Description] = @Description,
+        Amount = @Amount,
+        ExpenseDate = ISNULL(@ExpenseDate, ExpenseDate),
+        AccountId = ISNULL(@AccountId, AccountId),
+        ExpenseCategory = ISNULL(@ExpenseCategory, ExpenseCategory),
+        ForReference = ISNULL(@ForReference, ForReference),
+        ModifiedBy = @ModifiedBy,
+        ModifiedDate = GETDATE()
+    WHERE ExpenseId = @ExpenseId
+      AND GroupId IS NULL
+      AND PaidBy = @MemberId
+      AND IsActive = 1;
 END
 GO
 
@@ -997,6 +1084,36 @@ BEGIN
     UPDATE [dbo].[Expense]
     SET GroupId = @NewGroupId, ModifiedBy = @ModifiedBy, ModifiedDate = GETDATE()
     WHERE ExpenseId = @ExpenseId AND IsActive = 1;
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_AddExpensePayer]
+    @ExpenseId BIGINT,
+    @MemberId BIGINT,
+    @AmountPaid DECIMAL(10,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DELETE FROM [dbo].[ExpensePayer]
+    WHERE ExpenseId = @ExpenseId AND MemberId = @MemberId;
+
+    INSERT INTO [dbo].[ExpensePayer] (ExpenseId, MemberId, AmountPaid)
+    VALUES (@ExpenseId, @MemberId, @AmountPaid);
+
+    SELECT CAST(SCOPE_IDENTITY() AS BIGINT) AS PayerId;
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_GetExpensePayers]
+    @ExpenseId BIGINT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT ep.PayerId, ep.MemberId, m.MemberName, ep.AmountPaid
+    FROM [dbo].[ExpensePayer] ep
+    INNER JOIN [dbo].[Member] m ON m.MemberId = ep.MemberId
+    WHERE ep.ExpenseId = @ExpenseId
+    ORDER BY ep.AmountPaid DESC;
 END
 GO
 
@@ -1204,10 +1321,41 @@ CREATE PROCEDURE [dbo].[sp_GetExpenseAttachments]
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT AttachmentId, FileName, FileUrl, FileType, FileSizeKB, UploadedDate
+    SELECT AttachmentId, ExpenseId, FileName, FileUrl, FileType, FileSizeKB, UploadedDate
     FROM [dbo].[ExpenseAttachment]
     WHERE ExpenseId = @ExpenseId AND IsActive = 1
     ORDER BY UploadedDate DESC;
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_GetAttachmentsByMember]
+    @MemberId BIGINT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT
+        ea.AttachmentId,
+        ea.ExpenseId,
+        e.[Description] AS ExpenseDescription,
+        e.Amount AS ExpenseAmount,
+        e.ExpenseDate,
+        g.GroupName,
+        ea.FileName,
+        ea.FileUrl,
+        ea.FileType,
+        ea.FileSizeKB,
+        ea.UploadedDate
+    FROM [dbo].[ExpenseAttachment] ea
+    INNER JOIN [dbo].[Expense] e ON ea.ExpenseId = e.ExpenseId
+    LEFT JOIN [dbo].[Groups] g ON e.GroupId = g.GroupId
+    WHERE ea.UploadedBy = (
+            SELECT TOP 1 u.EmailAddress
+            FROM [dbo].[Users] u
+            WHERE u.MemberId = @MemberId AND u.IsActive = 1
+        )
+      AND ea.IsActive = 1
+      AND e.IsActive = 1
+    ORDER BY ea.UploadedDate DESC;
 END
 GO
 

@@ -15,5 +15,15 @@ namespace FinTrackPortal.Models
         [Required]
         [Range(0.01, double.MaxValue)]
         public decimal Amount { get; set; }
+
+        public DateTime? ExpenseDate { get; set; }
+
+        public long? AccountId { get; set; }
+
+        [StringLength(20)]
+        public string? ExpenseCategory { get; set; }
+
+        [StringLength(200)]
+        public string? ForReference { get; set; }
     }
 }

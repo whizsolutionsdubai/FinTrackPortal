@@ -122,7 +122,9 @@ namespace FinTrackPortal.API.Controllers
                 request.SplitType,
                 request.Members,
                 request.CustomAmounts,
-                modifiedBy);
+                modifiedBy,
+                request.ExpenseCategory,
+                request.ForReference);
 
             if (!result.IsSuccess)
                 return BadRequest(ApiResponse<object?>.ErrorResponse("Failed to update expense", result.ErrorMessage!));
@@ -179,7 +181,11 @@ namespace FinTrackPortal.API.Controllers
                 request.Description,
                 request.Amount,
                 memberId,
-                createdBy);
+                createdBy,
+                request.ExpenseDate,
+                request.AccountId,
+                request.ExpenseCategory,
+                request.ForReference);
 
             if (!result.IsSuccess)
                 return BadRequest(ApiResponse<object?>.ErrorResponse("Failed to add personal expense", result.ErrorMessage!));
@@ -191,18 +197,49 @@ namespace FinTrackPortal.API.Controllers
             }, "Personal expense added successfully"));
         }
 
-        /// <summary>GET /api/Expense/personal — List personal expenses for the logged-in user.</summary>
+        /// <summary>GET /api/Expense/personal or /api/Expense/personal/my — List personal/office expenses; optional category filter (Personal, Office).</summary>
         [HttpGet("personal")]
-        public async Task<IActionResult> GetPersonal()
+        [HttpGet("personal/my")]
+        public async Task<IActionResult> GetPersonal([FromQuery] string? category)
         {
             var memberId = User.GetMemberId();
 
-            var result = await _expenseService.GetPersonalExpensesAsync(memberId);
+            var result = await _expenseService.GetPersonalExpensesAsync(memberId, category);
 
             if (!result.IsSuccess)
                 return BadRequest(ApiResponse<object?>.ErrorResponse("Failed to get personal expenses", result.ErrorMessage!));
 
             return Ok(ApiResponse<List<ExpenseResponse>>.SuccessResponse(result.Data!, "Personal expenses retrieved successfully"));
+        }
+
+        /// <summary>PUT /api/Expense/personal/edit — Update a personal or office expense for the logged-in user.</summary>
+        [HttpPut("personal/edit")]
+        public async Task<IActionResult> EditPersonal([FromBody] EditPersonalExpenseRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList();
+                return BadRequest(ApiResponse<object?>.ErrorResponse("Validation failed", errors));
+            }
+
+            var memberId = User.GetMemberId();
+            var modifiedBy = User.GetEmail();
+
+            var result = await _expenseService.UpdatePersonalExpenseAsync(
+                request.ExpenseId,
+                memberId,
+                request.Description,
+                request.Amount,
+                request.ExpenseDate,
+                request.AccountId,
+                request.ExpenseCategory,
+                request.ForReference,
+                modifiedBy);
+
+            if (!result.IsSuccess)
+                return BadRequest(ApiResponse<object?>.ErrorResponse("Failed to update personal expense", result.ErrorMessage!));
+
+            return Ok(ApiResponse<object>.SuccessResponse(new { expenseId = request.ExpenseId }, "Personal expense updated successfully"));
         }
 
         /// <summary>
@@ -281,6 +318,49 @@ namespace FinTrackPortal.API.Controllers
         // ================================================================
         // Receipt / Invoice Attachments
         // ================================================================
+
+        /// <summary>GET /api/Expense/attachments/my — All receipts uploaded by the current user with expense context.</summary>
+        [HttpGet("attachments/my")]
+        public async Task<IActionResult> GetMyAttachments()
+        {
+            var memberId = User.GetMemberId();
+            var result = await _expenseService.GetAllAttachmentsAsync(memberId);
+
+            if (!result.IsSuccess)
+                return BadRequest(ApiResponse<object?>.ErrorResponse("Failed to retrieve attachments", result.ErrorMessage!));
+
+            return Ok(ApiResponse<List<MemberAttachmentResponse>>.SuccessResponse(result.Data!, "Attachments retrieved successfully"));
+        }
+
+        /// <summary>POST /api/Expense/payer — Record how much a member paid toward an expense (multi-payer).</summary>
+        [HttpPost("payer")]
+        public async Task<IActionResult> AddExpensePayer([FromBody] AddExpensePayerRequest request)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponse<object?>.ErrorResponse("Validation failed"));
+
+            if (request.AmountPaid <= 0)
+                return BadRequest(ApiResponse<object?>.ErrorResponse("Amount paid must be greater than zero."));
+
+            var result = await _expenseService.AddExpensePayerAsync(request);
+
+            if (!result.IsSuccess)
+                return BadRequest(ApiResponse<object?>.ErrorResponse("Failed to record payer", result.ErrorMessage!));
+
+            return Ok(ApiResponse<object>.SuccessResponse(new { payerId = result.Data }, "Payer recorded successfully."));
+        }
+
+        /// <summary>GET /api/Expense/{expenseId}/payers — List who paid how much for an expense.</summary>
+        [HttpGet("{expenseId:long}/payers")]
+        public async Task<IActionResult> GetExpensePayers(long expenseId)
+        {
+            var result = await _expenseService.GetExpensePayersAsync(expenseId);
+
+            if (!result.IsSuccess)
+                return BadRequest(ApiResponse<object?>.ErrorResponse("Failed to get payers", result.ErrorMessage!));
+
+            return Ok(ApiResponse<List<ExpensePayerResponse>>.SuccessResponse(result.Data!, "Payers retrieved successfully."));
+        }
 
         /// <summary>
         /// POST /api/Expense/{expenseId}/attachment — Upload a receipt or invoice (JPG, PNG, PDF).

@@ -62,7 +62,7 @@ namespace FinTrackPortal.Repositories
             }
         }
 
-        public async Task<OperationResult<bool>> EditExpenseAsync(long expenseId, string description, decimal amount, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string modifiedBy)
+        public async Task<OperationResult<bool>> EditExpenseAsync(long expenseId, string description, decimal amount, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string modifiedBy, string? expenseCategory, string? forReference)
         {
             try
             {
@@ -72,7 +72,18 @@ namespace FinTrackPortal.Repositories
 
                 await conn.ExecuteAsync(
                     "sp_UpdateExpense",
-                    new { ExpenseId = expenseId, Description = description, Amount = amount, PaidBy = paidBy, SplitType = splitType, ModifiedBy = modifiedBy },
+                    new
+                    {
+                        ExpenseId = expenseId,
+                        Description = description,
+                        Amount = amount,
+                        PaidBy = paidBy,
+                        SplitType = splitType,
+                        ModifiedBy = modifiedBy,
+                        AccountId = (long?)null,
+                        ExpenseCategory = expenseCategory,
+                        ForReference = forReference
+                    },
                     transaction: tx,
                     commandType: CommandType.StoredProcedure);
 
@@ -143,7 +154,7 @@ namespace FinTrackPortal.Repositories
             }
         }
 
-        public async Task<OperationResult<long>> AddPersonalExpenseAsync(string description, decimal amount, long memberId, string createdBy)
+        public async Task<OperationResult<long>> AddPersonalExpenseAsync(string description, decimal amount, long memberId, string createdBy, DateTime? expenseDate, long? accountId, string? expenseCategory, string? forReference)
         {
             try
             {
@@ -151,7 +162,17 @@ namespace FinTrackPortal.Repositories
 
                 var expenseId = await conn.QuerySingleAsync<long>(
                     "sp_AddPersonalExpense",
-                    new { Description = description, Amount = amount, MemberId = memberId, CreatedBy = createdBy },
+                    new
+                    {
+                        Description = description,
+                        Amount = amount,
+                        MemberId = memberId,
+                        CreatedBy = createdBy,
+                        ExpenseDate = expenseDate.HasValue ? expenseDate.Value.Date : (DateTime?)null,
+                        AccountId = accountId,
+                        ExpenseCategory = expenseCategory,
+                        ForReference = forReference
+                    },
                     commandType: CommandType.StoredProcedure);
 
                 return OperationResult<long>.Success(expenseId);
@@ -163,7 +184,40 @@ namespace FinTrackPortal.Repositories
             }
         }
 
-        public async Task<OperationResult<List<ExpenseResponse>>> GetPersonalExpensesAsync(long memberId)
+        public async Task<OperationResult<bool>> UpdatePersonalExpenseAsync(long expenseId, long memberId, string description, decimal amount, DateTime? expenseDate, long? accountId, string? expenseCategory, string? forReference, string modifiedBy)
+        {
+            try
+            {
+                using var conn = Connection;
+
+                var rows = await conn.ExecuteAsync(
+                    "sp_UpdatePersonalExpense",
+                    new
+                    {
+                        ExpenseId = expenseId,
+                        MemberId = memberId,
+                        Description = description,
+                        Amount = amount,
+                        ExpenseDate = expenseDate.HasValue ? expenseDate.Value.Date : (DateTime?)null,
+                        AccountId = accountId,
+                        ExpenseCategory = expenseCategory,
+                        ForReference = forReference,
+                        ModifiedBy = modifiedBy
+                    },
+                    commandType: CommandType.StoredProcedure);
+
+                return rows > 0
+                    ? OperationResult<bool>.Success(true)
+                    : OperationResult<bool>.Failure("Personal expense not found or access denied.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating personal expense {ExpenseId}", expenseId);
+                return OperationResult<bool>.Failure(ex.Message);
+            }
+        }
+
+        public async Task<OperationResult<List<ExpenseResponse>>> GetPersonalExpensesAsync(long memberId, string? category)
         {
             try
             {
@@ -171,7 +225,7 @@ namespace FinTrackPortal.Repositories
 
                 var expenses = (await conn.QueryAsync<ExpenseResponse>(
                     "sp_GetPersonalExpenses",
-                    new { MemberId = memberId },
+                    new { MemberId = memberId, Category = category },
                     commandType: CommandType.StoredProcedure)).ToList();
 
                 return OperationResult<List<ExpenseResponse>>.Success(expenses);
@@ -302,6 +356,66 @@ namespace FinTrackPortal.Repositories
             {
                 _logger.LogError(ex, "Error fetching attachments for expense {ExpenseId}", expenseId);
                 return OperationResult<List<AttachmentResponse>>.Failure(ex.Message);
+            }
+        }
+
+        public async Task<OperationResult<List<MemberAttachmentResponse>>> GetAllAttachmentsAsync(long memberId)
+        {
+            try
+            {
+                using var conn = Connection;
+
+                var list = (await conn.QueryAsync<MemberAttachmentResponse>(
+                    "sp_GetAttachmentsByMember",
+                    new { MemberId = memberId },
+                    commandType: CommandType.StoredProcedure)).ToList();
+
+                return OperationResult<List<MemberAttachmentResponse>>.Success(list);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching attachments for member {MemberId}", memberId);
+                return OperationResult<List<MemberAttachmentResponse>>.Failure(ex.Message);
+            }
+        }
+
+        public async Task<OperationResult<long>> AddExpensePayerAsync(AddExpensePayerRequest request)
+        {
+            try
+            {
+                using var conn = Connection;
+
+                var payerId = await conn.ExecuteScalarAsync<long>(
+                    "sp_AddExpensePayer",
+                    new { request.ExpenseId, request.MemberId, request.AmountPaid },
+                    commandType: CommandType.StoredProcedure);
+
+                return OperationResult<long>.Success(payerId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding payer for expense {ExpenseId}", request.ExpenseId);
+                return OperationResult<long>.Failure(ex.Message);
+            }
+        }
+
+        public async Task<OperationResult<List<ExpensePayerResponse>>> GetExpensePayersAsync(long expenseId)
+        {
+            try
+            {
+                using var conn = Connection;
+
+                var payers = (await conn.QueryAsync<ExpensePayerResponse>(
+                    "sp_GetExpensePayers",
+                    new { ExpenseId = expenseId },
+                    commandType: CommandType.StoredProcedure)).ToList();
+
+                return OperationResult<List<ExpensePayerResponse>>.Success(payers);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching payers for expense {ExpenseId}", expenseId);
+                return OperationResult<List<ExpensePayerResponse>>.Failure(ex.Message);
             }
         }
 

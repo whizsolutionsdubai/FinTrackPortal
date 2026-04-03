@@ -186,11 +186,16 @@ Do not commit `bin/**` XML files; they are build artifacts.
 | PUT | `/api/Expense/edit` |
 | DELETE | `/api/Expense/delete/{expenseId}` |
 | GET | `/api/Expense/group/{groupId}` |
-| POST / GET | `/api/Expense/personal` |
+| POST | `/api/Expense/personal` |
+| GET | `/api/Expense/personal` or `/api/Expense/personal/my` (`?category=` optional) |
+| PUT | `/api/Expense/personal/edit` |
 | POST | `/api/Expense/move` |
+| POST | `/api/Expense/payer` |
+| GET | `/api/Expense/{expenseId}/payers` |
 | GET | `/api/Expense/accounts/{userId}` |
 | POST | `/api/Expense/accounts` |
 | DELETE | `/api/Expense/accounts/{accountId}` |
+| GET | `/api/Expense/attachments/my` |
 | POST | `/api/Expense/{expenseId}/attachment` |
 | GET | `/api/Expense/{expenseId}/attachments` |
 | DELETE | `/api/Expense/attachment/{attachmentId}` |
@@ -223,7 +228,7 @@ Do not commit `bin/**` XML files; they are build artifacts.
 
 | Item | Notes |
 |------|--------|
-| Password hashing | Ensure production uses strong hashing (e.g. BCrypt) for `PasswordHash`; align with `sp_ValidateUser` expectations. |
+| Auth | Passwords use **BCrypt** in `UserRepository`; `sp_ValidateUser` returns `MemberId` + `PasswordHash` (match on **email** / `EmailAddress`). |
 | Secrets | Keep production connection strings and JWT keys out of git; use host panel or GitHub Secrets. |
 
 ---

@@ -13,6 +13,10 @@ namespace FinTrackPortal.Models
         public long PaidBy { get; set; }
         public string PaidByName { get; set; } = string.Empty;
         public string SplitType { get; set; } = string.Empty;
+        public DateTime ExpenseDate { get; set; }
+        public string? ExpenseCategory { get; set; }
+        public string? ForReference { get; set; }
+        public string? AccountName { get; set; }
         public DateTime CreatedDate { get; set; }
     }
 }

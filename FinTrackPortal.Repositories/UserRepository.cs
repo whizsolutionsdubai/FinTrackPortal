@@ -6,8 +6,6 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Data;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace FinTrackPortal.Repositories
 {
@@ -35,15 +33,18 @@ namespace FinTrackPortal.Repositories
             {
                 using var conn = Connection;
 
-                var memberId = await conn.QueryFirstOrDefaultAsync<long?>(
+                var row = await conn.QueryFirstOrDefaultAsync<ValidateUserRow>(
                     "sp_ValidateUser",
-                    new { UserName = username, PasswordHash = HashPassword(password) },
+                    new { UserName = username },
                     commandType: CommandType.StoredProcedure);
 
-                if (memberId == null)
+                if (row == null || string.IsNullOrEmpty(row.PasswordHash))
                     return OperationResult<long>.Failure("User not found or invalid credentials.");
 
-                return OperationResult<long>.Success(memberId.Value);
+                if (!BCrypt.Net.BCrypt.Verify(password, row.PasswordHash))
+                    return OperationResult<long>.Failure("User not found or invalid credentials.");
+
+                return OperationResult<long>.Success(row.MemberId);
             }
             catch (Exception ex)
             {
@@ -103,19 +104,13 @@ namespace FinTrackPortal.Repositories
             }
         }
 
-        /// <summary>
-        /// Hash a password before storing. Currently returns plain text for development.
-        /// TODO: Replace with BCrypt.Net before production (see developer reference section 5.1).
-        /// </summary>
         private static string HashPassword(string password)
-        {
-            return password;
-            // hided code due to the password encryption stopped for no and will activate in the production
-            //using var sha = SHA256.Create();
-            //var bytes = Encoding.UTF8.GetBytes(password);
-            //var hash = sha.ComputeHash(bytes);
-            //return Convert.ToBase64String(hash);
-        }
+            => BCrypt.Net.BCrypt.HashPassword(password, workFactor: 12);
 
+        private sealed class ValidateUserRow
+        {
+            public long MemberId { get; set; }
+            public string? PasswordHash { get; set; }
+        }
     }
 }
