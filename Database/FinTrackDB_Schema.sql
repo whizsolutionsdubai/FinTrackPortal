@@ -702,6 +702,7 @@ DROP PROCEDURE IF EXISTS [dbo].[sp_MoveExpense];
 DROP PROCEDURE IF EXISTS [dbo].[sp_RecordSettlement];
 DROP PROCEDURE IF EXISTS [dbo].[sp_RecordFailedLogin];
 DROP PROCEDURE IF EXISTS [dbo].[sp_RegisterUser];
+DROP PROCEDURE IF EXISTS [dbo].[sp_ResetLoginAttempts];
 DROP PROCEDURE IF EXISTS [dbo].[sp_ResetPassword];
 DROP PROCEDURE IF EXISTS [dbo].[sp_SaveEmailVerifyToken];
 DROP PROCEDURE IF EXISTS [dbo].[sp_SavePasswordResetToken];
@@ -868,6 +869,15 @@ BEGIN
     SET [FailedLoginCount] = 0,
         [LockoutUntil] = NULL
     WHERE [EmailAddress] = @UserName AND [IsActive] = 1;
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_ResetLoginAttempts]
+    @UserName NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    EXEC [dbo].[sp_ClearFailedLogins] @UserName = @UserName;
 END
 GO
 

@@ -279,5 +279,17 @@ BEGIN
 END
 GO
 
+-- ---------------------------------------------------------------------------
+-- 12. Alias per FinShare Phase 1 naming (LoginAttempts reset = clear lockout)
+-- ---------------------------------------------------------------------------
+CREATE OR ALTER PROCEDURE dbo.sp_ResetLoginAttempts
+    @UserName NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    EXEC dbo.sp_ClearFailedLogins @UserName = @UserName;
+END
+GO
+
 PRINT 'FinTrackDB_Migration_Production_SecurityPhase2.sql completed.';
 GO

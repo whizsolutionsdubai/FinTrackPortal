@@ -33,7 +33,7 @@ FinTrackPortal.sln
 └── FinTrackPortal.Common         # Shared wrappers (ApiResponse<T>, OperationResult<T>)
 ```
 
-More detail: [Docs/DeveloperGuide.md](Docs/DeveloperGuide.md). **Configuration:** [Docs/AppSettings.md](Docs/AppSettings.md) (all `appsettings` keys). **Microsoft 365 email:** [Docs/Email-Microsoft365-Setup.md](Docs/Email-Microsoft365-Setup.md).
+More detail: [Docs/DeveloperGuide.md](Docs/DeveloperGuide.md). **Roadmap → files:** [Docs/WhatToDoAndWhere.md](Docs/WhatToDoAndWhere.md) (maps `Docs/Prompt/FinShare_ForAbhilash_WhatToDoAndWhere.pdf`). **Configuration:** [Docs/AppSettings.md](Docs/AppSettings.md). **Microsoft 365 email:** [Docs/Email-Microsoft365-Setup.md](Docs/Email-Microsoft365-Setup.md).
 
 ## API Endpoints
 
@@ -48,7 +48,7 @@ More detail: [Docs/DeveloperGuide.md](Docs/DeveloperGuide.md). **Configuration:*
 | POST | `/api/Auth/forgot-password` | Body `{ "email" }`; always returns success (no email enumeration) |
 | POST | `/api/Auth/reset-password` | Body `{ "token", "newPassword" }`; strong password rules apply |
 
-**Phase 2 security (rate limits, lockout, audit, token cleanup):** apply **`Database/FinTrackDB_Migration_Production_SecurityPhase2.sql`** after auth migrations. Login is limited to **5 requests/minute/IP**; register **3/hour/IP**; forgot-password and resend-verification **3/15 minutes/IP** (HTTP **429** when exceeded). After **5 failed password attempts**, the account is **locked for 15 minutes**. Auth events are written to **`AuditLogs`**; a background job runs **`sp_CleanupExpiredTokens`** hourly and audit retention (**`sp_ArchiveAuditLogsRetention`**) daily. **`ForwardedHeaders`** is enabled for correct client IP behind Azure/nginx.
+**Phase 2 security (rate limits, lockout, audit, token cleanup):** apply **`Database/FinTrackDB_Migration_Production_SecurityPhase2.sql`** after auth migrations (or **`Database/FinTrackDB_Migration_sp_ResetLoginAttempts.sql`** if you only need the `sp_ResetLoginAttempts` alias). Login is limited to **5 requests / 15 minutes / IP** (per *What To Do & Where*); register **3/hour/IP**; forgot-password and resend-verification **3/15 minutes/IP** (HTTP **429** when exceeded). Client IP for audits uses **`FinTrackPortal.API/Helpers/IpHelper`** behind proxies. After **5 failed password attempts**, the account is **locked for 15 minutes**. Auth events are written to **`AuditLogs`**; a background job runs **`sp_CleanupExpiredTokens`** hourly and audit retention (**`sp_ArchiveAuditLogsRetention`**) daily. **`ForwardedHeaders`** is enabled for correct client IP behind Azure/nginx.
 
 Passwords: **BCrypt** (work factor 12, above the spec minimum of 10). Policy: min 8, max 64, no spaces, 1 upper, 1 lower, 1 digit, 1 special from `!@#$%^&*-_=+`.
 

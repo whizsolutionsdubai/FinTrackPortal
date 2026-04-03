@@ -1,3 +1,4 @@
+using FinTrackPortal.API.Helpers;
 using FinTrackPortal.Common;
 using FinTrackPortal.Interfaces;
 using FinTrackPortal.Models;
@@ -53,7 +54,7 @@ namespace FinTrackPortal.API.Controllers
                 await _auditLog.WriteAsync(
                     null,
                     locked ? AuditAuthActions.LoginBlocked : AuditAuthActions.LoginFailed,
-                    GetClientIp(),
+                    IpHelper.GetClientIp(HttpContext),
                     GetUserAgent(),
                     false,
                     locked ? validationResult.ErrorMessage : "Invalid credentials");
@@ -65,13 +66,13 @@ namespace FinTrackPortal.API.Controllers
             var expiryResult = await _userService.GetUserExpiryAsync(login.UserName);
             if (!expiryResult.IsSuccess || !expiryResult.Data.HasValue)
             {
-                await _auditLog.WriteAsync(memberId, AuditAuthActions.LoginFailed, GetClientIp(), GetUserAgent(), false, "Unable to retrieve account expiry");
+                await _auditLog.WriteAsync(memberId, AuditAuthActions.LoginFailed, IpHelper.GetClientIp(HttpContext), GetUserAgent(), false, "Unable to retrieve account expiry");
                 return Unauthorized(ApiResponse<object?>.ErrorResponse("Unable to retrieve account expiry"));
             }
 
             if (expiryResult.Data.Value < DateTime.UtcNow)
             {
-                await _auditLog.WriteAsync(memberId, AuditAuthActions.LoginFailed, GetClientIp(), GetUserAgent(), false, "Account expired");
+                await _auditLog.WriteAsync(memberId, AuditAuthActions.LoginFailed, IpHelper.GetClientIp(HttpContext), GetUserAgent(), false, "Account expired");
                 return Unauthorized(ApiResponse<object?>.ErrorResponse("Account has expired"));
             }
 
@@ -93,7 +94,7 @@ namespace FinTrackPortal.API.Controllers
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
 
-            await _auditLog.WriteAsync(memberId, AuditAuthActions.LoginSuccess, GetClientIp(), GetUserAgent(), true, null);
+            await _auditLog.WriteAsync(memberId, AuditAuthActions.LoginSuccess, IpHelper.GetClientIp(HttpContext), GetUserAgent(), true, null);
 
             return Ok(ApiResponse<object>.SuccessResponse(new
             {
@@ -127,12 +128,12 @@ namespace FinTrackPortal.API.Controllers
 
             if (!result.IsSuccess)
             {
-                await _auditLog.WriteAsync(null, AuditAuthActions.Register, GetClientIp(), GetUserAgent(), false, result.ErrorMessage);
+                await _auditLog.WriteAsync(null, AuditAuthActions.Register, IpHelper.GetClientIp(HttpContext), GetUserAgent(), false, result.ErrorMessage);
                 return BadRequest(ApiResponse<object?>.ErrorResponse(
                     "Registration failed", result.ErrorMessage!));
             }
 
-            await _auditLog.WriteAsync(result.Data, AuditAuthActions.Register, GetClientIp(), GetUserAgent(), true, null);
+            await _auditLog.WriteAsync(result.Data, AuditAuthActions.Register, IpHelper.GetClientIp(HttpContext), GetUserAgent(), true, null);
 
             return Ok(ApiResponse<object>.SuccessResponse(new
             {
@@ -155,11 +156,11 @@ namespace FinTrackPortal.API.Controllers
             var result = await _userService.VerifyEmailAsync(request.Token);
             if (!result.IsSuccess)
             {
-                await _auditLog.WriteAsync(null, AuditAuthActions.EmailVerifyFailed, GetClientIp(), GetUserAgent(), false, result.ErrorMessage);
+                await _auditLog.WriteAsync(null, AuditAuthActions.EmailVerifyFailed, IpHelper.GetClientIp(HttpContext), GetUserAgent(), false, result.ErrorMessage);
                 return BadRequest(ApiResponse<object?>.ErrorResponse(result.ErrorMessage ?? "Invalid or expired link"));
             }
 
-            await _auditLog.WriteAsync(result.Data, AuditAuthActions.EmailVerified, GetClientIp(), GetUserAgent(), true, null);
+            await _auditLog.WriteAsync(result.Data, AuditAuthActions.EmailVerified, IpHelper.GetClientIp(HttpContext), GetUserAgent(), true, null);
 
             return Ok(ApiResponse<object?>.SuccessResponse(null, "Email verified successfully"));
         }
@@ -196,7 +197,7 @@ namespace FinTrackPortal.API.Controllers
             }
 
             var memberId = await _userService.ForgotPasswordAsync(request.Email);
-            await _auditLog.WriteAsync(memberId, AuditAuthActions.ForgotPassword, GetClientIp(), GetUserAgent(), true, null);
+            await _auditLog.WriteAsync(memberId, AuditAuthActions.ForgotPassword, IpHelper.GetClientIp(HttpContext), GetUserAgent(), true, null);
 
             return Ok(ApiResponse<object>.SuccessResponse(
                 new { },
@@ -217,21 +218,13 @@ namespace FinTrackPortal.API.Controllers
             var result = await _userService.ResetPasswordAsync(request.Token, request.NewPassword);
             if (!result.IsSuccess)
             {
-                await _auditLog.WriteAsync(null, AuditAuthActions.PasswordResetFailed, GetClientIp(), GetUserAgent(), false, result.ErrorMessage);
+                await _auditLog.WriteAsync(null, AuditAuthActions.PasswordResetFailed, IpHelper.GetClientIp(HttpContext), GetUserAgent(), false, result.ErrorMessage);
                 return BadRequest(ApiResponse<object?>.ErrorResponse(result.ErrorMessage ?? "Reset failed"));
             }
 
-            await _auditLog.WriteAsync(result.Data, AuditAuthActions.PasswordReset, GetClientIp(), GetUserAgent(), true, null);
+            await _auditLog.WriteAsync(result.Data, AuditAuthActions.PasswordReset, IpHelper.GetClientIp(HttpContext), GetUserAgent(), true, null);
 
             return Ok(ApiResponse<object>.SuccessResponse(new { }, "Password updated successfully. Please sign in."));
-        }
-
-        private string GetClientIp()
-        {
-            var forwarded = Request.Headers["X-Forwarded-For"].FirstOrDefault();
-            if (!string.IsNullOrEmpty(forwarded))
-                return forwarded.Split(',')[0].Trim();
-            return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         }
 
         private string? GetUserAgent() => Request.Headers.UserAgent.ToString();

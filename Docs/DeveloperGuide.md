@@ -109,7 +109,7 @@ Loaded from `JwtSettings` in `Program.cs`. Signing key must be non-empty; use a 
 
 ### Security Phase 2 (FinShare hardening spec)
 
-After Phase 1 auth columns exist, run **`Database/FinTrackDB_Migration_Production_SecurityPhase2.sql`** (or use an updated **`FinTrackDB_Schema.sql`** baseline). This adds **`FailedLoginCount` / `LockoutUntil`**, **`AuditLogs`** + **`AuditLogs_Archive`**, lockout and audit stored procedures, **`sp_CleanupExpiredTokens`**, and **`sp_GetUserEmailVerificationStatus`**. The API uses **`SecurityMaintenanceHostedService`**, **`IAuditLogRepository`**, ASP.NET **rate limiting**, and **`UseForwardedHeaders`**. Spec source: `Docs/Prompt/FinShare_SecurityHardening_V3.1.pdf` and master task list V4.
+After Phase 1 auth columns exist, run **`Database/FinTrackDB_Migration_Production_SecurityPhase2.sql`** (or use an updated **`FinTrackDB_Schema.sql`** baseline). This adds **`FailedLoginCount` / `LockoutUntil`**, **`AuditLogs`** + **`AuditLogs_Archive`**, lockout and audit stored procedures, **`sp_CleanupExpiredTokens`**, **`sp_GetUserEmailVerificationStatus`**, and **`sp_ResetLoginAttempts`** (alias for clearing lockout; PDF name). The API uses **`SecurityMaintenanceHostedService`**, **`IAuditLogRepository`**, ASP.NET **rate limiting** (login **5 / 15 min / IP** per *What To Do & Where*), **`UseForwardedHeaders`**, and **`Helpers/IpHelper`** for audit client IP. Roadmap index: [WhatToDoAndWhere.md](WhatToDoAndWhere.md). Spec sources: `Docs/Prompt/FinShare_SecurityHardening_V3.1.pdf`, `Docs/Prompt/FinShare_ForAbhilash_WhatToDoAndWhere.pdf`, master task list V4.
 
 ---
 
@@ -261,6 +261,7 @@ Do not commit `bin/**` XML files; they are build artifacts.
 | [README.md](../README.md) | Overview, endpoints, configuration summary, Postman |
 | [AppSettings.md](AppSettings.md) | All `appsettings` sections and environment layering |
 | [Email-Microsoft365-Setup.md](Email-Microsoft365-Setup.md) | Microsoft 365 / Graph email + Entra steps |
+| [WhatToDoAndWhere.md](WhatToDoAndWhere.md) | PDF roadmap → repo files (`Docs/Prompt/…WhatToDoAndWhere.pdf`) |
 | [architecture-wireframe.png](architecture-wireframe.png) | Layered architecture diagram (API, services, repos, SQL, Graph) |
 | `Database/FinTrackDB_Schema.sql` | Authoritative schema |
 | `appsettings.Production.example.json` | Production template |

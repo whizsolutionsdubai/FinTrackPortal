@@ -57,7 +57,7 @@ namespace FinTrackPortal.Repositories
                     return OperationResult<long>.Failure("Please verify your email before logging in.");
 
                 await conn.ExecuteAsync(
-                    "sp_ClearFailedLogins",
+                    "sp_ResetLoginAttempts",
                     new { UserName = username },
                     commandType: CommandType.StoredProcedure);
 

@@ -33,9 +33,10 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 builder.Services.AddRateLimiter(options =>
 {
+    // FinShare WhatToDoAndWhere.pdf: login 5 attempts per IP per 15 minutes
     options.AddFixedWindowLimiter("login", opt =>
     {
-        opt.Window = TimeSpan.FromMinutes(1);
+        opt.Window = TimeSpan.FromMinutes(15);
         opt.PermitLimit = 5;
         opt.QueueLimit = 0;
         opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
