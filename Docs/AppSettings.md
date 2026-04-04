@@ -44,9 +44,11 @@ Use `Encrypt=True` (and appropriate trust settings) in production. Do not commit
 | `Key` | Symmetric signing key for JWT. Must be non-empty; use a long random string (at least 32 characters) in production. |
 | `Issuer` | Token issuer claim (e.g. `FinShare`). |
 | `Audience` | Token audience claim (e.g. `FinShareUsers`). |
-| `ExpiryMinutes` | Access token lifetime in minutes. |
+| `ExpiryMinutes` | Access token (JWT) lifetime in minutes. |
+| `RefreshTokenDays` | Opaque refresh token lifetime (stored server-side; issued as **httpOnly** cookie `finshare_refresh` on login / refresh). Default `14`. |
 
-Configured in `Program.cs` with `Configure<JwtSettings>`.
+Configured in `Program.cs` with `Configure<JwtSettings>`. SPA clients calling **`/api/Auth/refresh`** must send **`credentials: 'include'`** (or equivalent) so the cookie is included.
+
 
 ---
 
@@ -136,5 +138,9 @@ Host filtering for the Kestrel pipeline. `*` allows any host header; restrict in
 
 ## Related documentation
 
+- [Docs README](README.md) — index of all files under `Docs/`.
 - [Email — Microsoft 365 (Graph) setup](Email-Microsoft365-Setup.md) — Entra app registration, permissions, and app configuration steps.
 - [Developer Guide](DeveloperGuide.md) — architecture and configuration overview; diagram: [architecture-wireframe.png](architecture-wireframe.png).
+- [What to do & where](WhatToDoAndWhere.md) — roadmap vs. repo locations.
+
+**Rate limiting** (login, register, forgot-password, resend-verification, refresh) and **account lockout** are configured in **`Program.cs`**, not in `appsettings`. See [README.md](../README.md) (Authentication section).

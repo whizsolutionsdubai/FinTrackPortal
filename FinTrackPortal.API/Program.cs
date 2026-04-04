@@ -53,6 +53,12 @@ builder.Services.AddRateLimiter(options =>
         opt.PermitLimit = 3;
         opt.QueueLimit = 0;
     });
+    options.AddFixedWindowLimiter("refresh", opt =>
+    {
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.PermitLimit = 30;
+        opt.QueueLimit = 0;
+    });
     options.OnRejected = async (context, token) =>
     {
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
@@ -141,6 +147,7 @@ builder.Services.AddSwaggerGen(c =>
 // Register dependencies
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IGroupRepository, GroupRepository>();

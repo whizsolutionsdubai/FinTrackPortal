@@ -199,6 +199,34 @@ GO
 CREATE NONCLUSTERED INDEX [IX_AuditLogs_CreatedAt] ON [dbo].[AuditLogs]([CreatedAt] ASC)
 GO
 
+CREATE TABLE [dbo].[UserRefreshTokens](
+	[TokenId] [int] IDENTITY(1,1) NOT NULL,
+	[MemberId] [bigint] NOT NULL,
+	[Token] [nvarchar](500) NOT NULL,
+	[ExpiresAt] [datetime] NOT NULL,
+	[IsRevoked] [bit] NOT NULL DEFAULT ((0)),
+	[CreatedAt] [datetime] NOT NULL DEFAULT (GETUTCDATE()),
+ CONSTRAINT [PK_UserRefreshTokens] PRIMARY KEY CLUSTERED
+(
+	[TokenId] ASC
+),
+ CONSTRAINT [UQ_UserRefreshTokens_Token] UNIQUE NONCLUSTERED
+(
+	[Token] ASC
+)
+) ON [PRIMARY]
+GO
+
+ALTER TABLE [dbo].[UserRefreshTokens] WITH CHECK ADD CONSTRAINT [FK_UserRefreshTokens_Member] FOREIGN KEY([MemberId])
+REFERENCES [dbo].[Member] ([MemberId])
+GO
+
+CREATE NONCLUSTERED INDEX [IX_UserRefreshTokens_MemberId] ON [dbo].[UserRefreshTokens]([MemberId] ASC)
+GO
+
+CREATE NONCLUSTERED INDEX [IX_UserRefreshTokens_ExpiresAt] ON [dbo].[UserRefreshTokens]([ExpiresAt] ASC)
+GO
+
 CREATE TABLE [dbo].[Groups](
 	[GroupId] [bigint] IDENTITY(1,1) NOT NULL,
 	[GroupName] [nvarchar](150) NOT NULL,
@@ -682,6 +710,7 @@ DROP PROCEDURE IF EXISTS [dbo].[sp_DeleteExpenseAttachment];
 DROP PROCEDURE IF EXISTS [dbo].[sp_DeleteExpenseSplits];
 DROP PROCEDURE IF EXISTS [dbo].[sp_DeleteMember];
 DROP PROCEDURE IF EXISTS [dbo].[sp_EditMember];
+DROP PROCEDURE IF EXISTS [dbo].[sp_GetUserEmailByMemberId];
 DROP PROCEDURE IF EXISTS [dbo].[sp_GetUserEmailVerificationStatus];
 DROP PROCEDURE IF EXISTS [dbo].[sp_GetExpiry];
 DROP PROCEDURE IF EXISTS [dbo].[sp_GetMemberNameByEmail];
@@ -704,10 +733,14 @@ DROP PROCEDURE IF EXISTS [dbo].[sp_RecordFailedLogin];
 DROP PROCEDURE IF EXISTS [dbo].[sp_RegisterUser];
 DROP PROCEDURE IF EXISTS [dbo].[sp_ResetLoginAttempts];
 DROP PROCEDURE IF EXISTS [dbo].[sp_ResetPassword];
+DROP PROCEDURE IF EXISTS [dbo].[sp_RevokeAllUserRefreshTokens];
+DROP PROCEDURE IF EXISTS [dbo].[sp_RevokeRefreshToken];
+DROP PROCEDURE IF EXISTS [dbo].[sp_SaveRefreshToken];
 DROP PROCEDURE IF EXISTS [dbo].[sp_SaveEmailVerifyToken];
 DROP PROCEDURE IF EXISTS [dbo].[sp_SavePasswordResetToken];
 DROP PROCEDURE IF EXISTS [dbo].[sp_UpdateExpense];
 DROP PROCEDURE IF EXISTS [dbo].[sp_UpdatePersonalExpense];
+DROP PROCEDURE IF EXISTS [dbo].[sp_ValidateRefreshToken];
 DROP PROCEDURE IF EXISTS [dbo].[sp_ValidateUser];
 DROP PROCEDURE IF EXISTS [dbo].[sp_VerifyEmail];
 DROP PROCEDURE IF EXISTS [dbo].[sp_WriteAuditLog];
@@ -897,6 +930,9 @@ BEGIN
         [PasswordResetExpiry] = NULL
     WHERE [PasswordResetExpiry] < GETUTCDATE()
       AND [IsActive] = 1;
+
+    DELETE FROM [dbo].[UserRefreshTokens]
+    WHERE [ExpiresAt] < GETUTCDATE();
 END
 GO
 
@@ -941,6 +977,67 @@ BEGIN
     FROM [dbo].[Users] u
     INNER JOIN [dbo].[Member] m ON m.[MemberId] = u.[MemberId]
     WHERE u.[EmailAddress] = @Email AND u.[IsActive] = 1 AND m.[IsActive] = 1;
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_SaveRefreshToken]
+    @MemberId BIGINT,
+    @Token NVARCHAR(500),
+    @ExpiresAt DATETIME
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO [dbo].[UserRefreshTokens] ([MemberId], [Token], [ExpiresAt])
+    VALUES (@MemberId, @Token, @ExpiresAt);
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_ValidateRefreshToken]
+    @Token NVARCHAR(500)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP (1) [MemberId]
+    FROM [dbo].[UserRefreshTokens]
+    WHERE [Token] = @Token
+      AND [IsRevoked] = 0
+      AND [ExpiresAt] > GETUTCDATE();
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_RevokeRefreshToken]
+    @Token NVARCHAR(500)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE [dbo].[UserRefreshTokens]
+    SET [IsRevoked] = 1
+    WHERE [Token] = @Token;
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_RevokeAllUserRefreshTokens]
+    @MemberId BIGINT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE [dbo].[UserRefreshTokens]
+    SET [IsRevoked] = 1
+    WHERE [MemberId] = @MemberId AND [IsRevoked] = 0;
+END
+GO
+
+CREATE PROCEDURE [dbo].[sp_GetUserEmailByMemberId]
+    @MemberId BIGINT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP (1) u.[EmailAddress]
+    FROM [dbo].[Users] u
+    INNER JOIN [dbo].[Member] m ON m.[MemberId] = u.[MemberId]
+    WHERE u.[MemberId] = @MemberId
+      AND u.[IsActive] = 1
+      AND m.[IsActive] = 1;
 END
 GO
 

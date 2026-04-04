@@ -9,7 +9,7 @@ A RESTful Web API for tracking shared and personal expenses within groups. Built
 | Framework | .NET 8 / ASP.NET Core Web API |
 | Database | SQL Server |
 | ORM | Dapper (stored procedures) |
-| Authentication | JWT Bearer tokens |
+| Authentication | JWT access tokens + **opaque refresh tokens** (httpOnly cookie `finshare_refresh`) |
 | API Docs | Swagger / Swashbuckle |
 | Attachments | **Local disk** or **Azure Blob Storage** (switch via configuration) |
 | CI/CD | GitHub Actions → SmarterASP.NET (FTP) |
@@ -28,12 +28,12 @@ FinTrackPortal.sln
 ├── FinTrackPortal.API            # Controllers, middleware, Program.cs, infrastructure services (email, attachments)
 ├── FinTrackPortal.Services       # Business logic (service interfaces + implementations)
 ├── FinTrackPortal.Repositories   # Data access via Dapper + stored procedures
-├── FinTrackPortal.Interfaces     # Repository contracts (+ IEmailSender, etc.)
+├── FinTrackPortal.Interfaces     # Repository contracts (e.g. `IEmailSender`, `IRefreshTokenRepository`, `IAuditLogRepository`)
 ├── FinTrackPortal.Models         # DTOs, request/response models, entities
 └── FinTrackPortal.Common         # Shared wrappers (ApiResponse<T>, OperationResult<T>)
 ```
 
-More detail: [Docs/DeveloperGuide.md](Docs/DeveloperGuide.md). **Roadmap → files:** [Docs/WhatToDoAndWhere.md](Docs/WhatToDoAndWhere.md) (maps `Docs/Prompt/FinShare_ForAbhilash_WhatToDoAndWhere.pdf`). **Configuration:** [Docs/AppSettings.md](Docs/AppSettings.md). **Microsoft 365 email:** [Docs/Email-Microsoft365-Setup.md](Docs/Email-Microsoft365-Setup.md).
+More detail: [Docs/DeveloperGuide.md](Docs/DeveloperGuide.md). **All docs:** [Docs/README.md](Docs/README.md). **Roadmap → files:** [Docs/WhatToDoAndWhere.md](Docs/WhatToDoAndWhere.md). **Configuration:** [Docs/AppSettings.md](Docs/AppSettings.md). **Microsoft 365 email:** [Docs/Email-Microsoft365-Setup.md](Docs/Email-Microsoft365-Setup.md).
 
 ## API Endpoints
 
@@ -41,20 +41,22 @@ More detail: [Docs/DeveloperGuide.md](Docs/DeveloperGuide.md). **Roadmap → fil
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| POST | `/api/Auth/login` | JWT after valid credentials and **verified email** |
+| POST | `/api/Auth/login` | JWT after valid credentials and **verified email**; sets **httpOnly** refresh cookie `finshare_refresh` |
+| POST | `/api/Auth/refresh` | New JWT + rotated refresh cookie (send cookie from login; **credentials** required for browser clients) |
+| POST | `/api/Auth/revoke` | Revokes refresh session (**logout**); clears cookie |
 | POST | `/api/Auth/register` | Creates Member + User; sends verification email (no JWT). **Strong password** enforced server-side |
 | POST | `/api/Auth/verify-email` | Body `{ "token" }` from email link |
 | POST | `/api/Auth/resend-verification` | Body `{ "email" }`; generic success; rate-limited (same window as forgot-password) |
 | POST | `/api/Auth/forgot-password` | Body `{ "email" }`; always returns success (no email enumeration) |
 | POST | `/api/Auth/reset-password` | Body `{ "token", "newPassword" }`; strong password rules apply |
 
-**Phase 2 security (rate limits, lockout, audit, token cleanup):** apply **`Database/FinTrackDB_Migration_Production_SecurityPhase2.sql`** after auth migrations (or **`Database/FinTrackDB_Migration_sp_ResetLoginAttempts.sql`** if you only need the `sp_ResetLoginAttempts` alias). Login is limited to **5 requests / 15 minutes / IP** (per *What To Do & Where*); register **3/hour/IP**; forgot-password and resend-verification **3/15 minutes/IP** (HTTP **429** when exceeded). Client IP for audits uses **`FinTrackPortal.API/Helpers/IpHelper`** behind proxies. After **5 failed password attempts**, the account is **locked for 15 minutes**. Auth events are written to **`AuditLogs`**; a background job runs **`sp_CleanupExpiredTokens`** hourly and audit retention (**`sp_ArchiveAuditLogsRetention`**) daily. **`ForwardedHeaders`** is enabled for correct client IP behind Azure/nginx.
+**Phase 2 security (rate limits, lockout, audit, token cleanup, refresh tokens):** apply **`Database/FinTrackDB_Migration_Production_SecurityPhase2.sql`** after auth migrations, then **`Database/FinTrackDB_Migration_UserRefreshTokens.sql`** (or use an updated **`FinTrackDB_Schema.sql`**). Optional: **`Database/FinTrackDB_Migration_sp_ResetLoginAttempts.sql`** if you only need the `sp_ResetLoginAttempts` alias. Login is limited to **5 requests / 15 minutes / IP**; register **3/hour/IP**; forgot-password and resend-verification **3/15 minutes/IP**; **refresh** **30/min/IP** (HTTP **429** when exceeded). Client IP for audits uses **`IpHelper`**. Account **lockout** after **5** failed passwords (**15 minutes**). **`AuditLogs`** + hourly **`sp_CleanupExpiredTokens`** (includes expired refresh rows) + daily **`sp_ArchiveAuditLogsRetention`**. **`JwtSettings:RefreshTokenDays`** (default **14**) controls refresh cookie lifetime. Password reset **revokes all refresh tokens** for that member.
 
 Passwords: **BCrypt** (work factor 12, above the spec minimum of 10). Policy: min 8, max 64, no spaces, 1 upper, 1 lower, 1 digit, 1 special from `!@#$%^&*-_=+`.
 
 Configure transactional email under **`Email`**: use **`Provider`** = `MicrosoftGraph` for Microsoft 365 (recommended) or `Smtp` for SMTP relay. Set **`AppPublicUrl`** for verify/reset links. See [Docs/AppSettings.md](Docs/AppSettings.md) and [Docs/Email-Microsoft365-Setup.md](Docs/Email-Microsoft365-Setup.md). If **`Enabled`** is false, verification/reset emails are skipped (logged).
 
-**Production DB:** run `Database/FinTrackDB_Migration_Production_AuthEnhancements.sql` after Phase 3 migration. It sets existing users `IsEmailVerified = 1` so current accounts keep logging in.
+The **Auth enhancements** migration (step 2 in the [Database Schema](#database-schema) table) can set existing users **`IsEmailVerified = 1`** so current accounts keep logging in — see comments inside `FinTrackDB_Migration_Production_AuthEnhancements.sql`.
 
 ### Groups (`api/Group`)
 
@@ -115,7 +117,7 @@ Configure transactional email under **`Email`**: use **`Provider`** = `Microsoft
 | PUT | `/api/Member/edit` | Edit member name |
 | DELETE | `/api/Member/delete/{memberId}` | Soft-delete a member |
 
-> All endpoints except **Auth**, **GET /api/Subscription/plans**, and **Swagger** require a valid JWT Bearer token.
+> All endpoints except **Auth** (including **`/refresh`** and **`/revoke`**), **GET /api/Subscription/plans**, and **Swagger** require a valid **JWT Bearer** token on each request. The refresh cookie is separate and is used only to obtain a new JWT.
 
 ## Configuration
 
@@ -124,7 +126,8 @@ Configure transactional email under **`Email`**: use **`Provider`** = `Microsoft
 | Section | Purpose |
 |---------|---------|
 | `ConnectionStrings:DefaultConnection` | SQL Server connection string |
-| `JwtSettings` | Signing key (long random string), Issuer, Audience, token lifetime |
+| `JwtSettings` | Signing key, Issuer, Audience, **`ExpiryMinutes`** (access JWT), **`RefreshTokenDays`** (refresh cookie) |
+| `Email` | `Provider` (Graph/SMTP), `Graph:*` or SMTP fields, `AppPublicUrl`, `Enabled` — see [Docs/AppSettings.md](Docs/AppSettings.md) |
 | `AttachmentStorage:Provider` | `Azure` (default in repo) or `Local` |
 | `AzureStorage` | `ConnectionString`, `ContainerName` — used when `Provider` is `Azure` |
 | `LocalStorage` | `Path` (folder on disk or relative to app root), `PublicBaseUrl` (public URL prefix for files, e.g. `https://your-site/attachments`) |
@@ -151,27 +154,26 @@ Store production connection strings and JWT keys in **GitHub Actions secrets** o
 
 ## Database Schema
 
-Full script (fresh database + sample data + stored procedures):
+**New / greenfield environment** — full script (drops/recreates `FinTrackDB`; **SQL Server 2016+**):
 
 ```
 Database/FinTrackDB_Schema.sql
 ```
 
-**Existing production database** (no drop — adds columns, `ExpensePayer`, and updates procedures):
+Use only when you intend to rebuild the database; read the script header.
 
-```
-Database/FinTrackDB_Migration_Production_Phase3.sql
-```
+**Existing database** — apply migrations **in order** (back up first; adjust `USE [YourDatabase]` if needed):
 
-**Auth (email verification + password reset)** — run after Phase 3:
+| Order | Script | Purpose |
+|-------|--------|---------|
+| 1 | `Database/FinTrackDB_Migration_Production_Phase3.sql` | Phase 3 columns, `ExpensePayer`, procedure updates |
+| 2 | `Database/FinTrackDB_Migration_Production_AuthEnhancements.sql` | Email verify + password reset columns and auth SPs |
+| 3 | `Database/FinTrackDB_Migration_Production_SecurityPhase2.sql` | Lockout, `AuditLogs`, token cleanup, audit SPs, `sp_ResetLoginAttempts` |
+| 4 | `Database/FinTrackDB_Migration_UserRefreshTokens.sql` | `UserRefreshTokens`, refresh SPs, `sp_GetUserEmailByMemberId`, extends `sp_CleanupExpiredTokens` |
 
-```
-Database/FinTrackDB_Migration_Production_AuthEnhancements.sql
-```
+Optional: `Database/FinTrackDB_Migration_sp_ResetLoginAttempts.sql` only if you already ran Phase 2 before that procedure existed.
 
-The full schema script requires **SQL Server 2016+** and **drops/recreates** `FinTrackDB` — use only for new dev/test environments; read the script header.
-
-For **production**, use **`FinTrackDB_Migration_Production_Phase3.sql`**: back up first, set `USE [YourDatabase]` if the name is not `FinTrackDB`, run the migration, then deploy the API. After **`sp_ValidateUser`** changes, each user needs a **BCrypt** `PasswordHash` (re-register, password-reset flow, or a controlled `UPDATE`).
+After **`sp_ValidateUser`** / BCrypt changes, users need valid **BCrypt** `PasswordHash` (re-register, password reset, or controlled `UPDATE`). **`FinTrackDB_Migration_Production_AuthEnhancements.sql`** can set existing users `IsEmailVerified = 1` so logins keep working — see script comments.
 
 ### Tables (high level)
 
@@ -190,6 +192,8 @@ For **production**, use **`FinTrackDB_Migration_Production_Phase3.sql`**: back u
 | `ExpenseAttachment` | Metadata for files (URL points to local `/attachments` or Azure blob) |
 | `ExpensePayer` | Optional split of who paid how much on a single expense (multi-payer) |
 | `Organisation` / `CostCenter` | Corporate foundation (reserved for future use) |
+| `AuditLogs` / `AuditLogs_Archive` | Security audit trail (Phase 2); retention via `sp_ArchiveAuditLogsRetention` |
+| `UserRefreshTokens` | Opaque refresh tokens for JWT rotation (httpOnly cookie flow) |
 
 Stored procedures are documented inline in `FinTrackDB_Schema.sql` and summarized in the Developer Guide.
 
@@ -215,7 +219,7 @@ cd FinTrackPortal
 sqlcmd -S localhost -i Database/FinTrackDB_Schema.sql
 ```
 
-3. **Configure** `FinTrackPortal.API/appsettings.json` (and `appsettings.Development.json` if used) with your SQL connection string, JWT key, and attachment mode (`Local` or `Azure`).
+3. **Configure** — copy **`FinTrackPortal.API/appsettings.Development.example.json`** → **`appsettings.Development.json`** (gitignored) or edit **`appsettings.json`**. Set SQL connection string, JWT key, **`JwtSettings:RefreshTokenDays`** if needed, **`Email`** (or `Email:Enabled` = false), and attachment mode (`Local` or `Azure`). For an **existing** database, run the [migration scripts](#database-schema) in order, not only `FinTrackDB_Schema.sql`.
 
 4. **Run**
 
@@ -225,7 +229,7 @@ dotnet build
 dotnet run --project FinTrackPortal.API
 ```
 
-5. Open **Swagger** at `https://localhost:<port>/swagger`.
+5. Open **Swagger** at `https://localhost:<port>/swagger`. **Note:** Swagger does not automatically send the **refresh** cookie; use **Postman** or a browser client with **`credentials: 'include'`** to test **`POST /api/Auth/refresh`** and **`POST /api/Auth/revoke`**.
 
 ### Postman
 
@@ -238,7 +242,7 @@ Files in the **repository root**:
 | `FinTrackPortal.postman_environment_Production.json` | Production `baseUrl` template |
 
 1. Import the collection and one environment; set **`loginEmail`** and **`loginPassword`**.
-2. Run **Auth → Login** — saves **`token`**, **`memberId`**, and **`email`** as collection variables (Bearer auth is inherited).
+2. Run **Auth → Login** — saves **`token`**, **`memberId`**, and **`email`** as collection variables (Bearer auth is inherited). If your Postman build stores cookies from responses, you can call **Auth → Refresh** after access token expiry; otherwise re-run Login or manually manage the **`finshare_refresh`** cookie.
 3. Set **`groupId`** (e.g. copy from **Group → My Groups**) and align **`paidBy`** / **`members`** in expense JSON with real member IDs from your database.
 
 **Expense attachments (receipts)** — minimal flow:

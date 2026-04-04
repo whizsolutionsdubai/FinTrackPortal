@@ -12,4 +12,7 @@ public static class AuditAuthActions
     public const string ForgotPassword = "FORGOT_PASSWORD";
     public const string PasswordReset = "PASSWORD_RESET";
     public const string PasswordResetFailed = "PASSWORD_RESET_FAILED";
+
+    /// <summary>Refresh token revoked (client logout).</summary>
+    public const string Logout = "LOGOUT";
 }

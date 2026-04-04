@@ -1,7 +1,7 @@
 {
 	"info": {
 		"name": "FinTrackPortal API",
-		"description": "FinTrack / FinShare — full API collection with **Tests** tab assertions.\n\n## Setup\n1. Import **FinTrackPortal.postman_environment_Local.json** or **FinTrackPortal.postman_environment_Production.json**.\n2. Select that environment (top right).\n3. Set **loginEmail** and **loginPassword**.\n4. Run **Auth → Login** once (saves **token**, **memberId**, **email** to collection variables).\n5. Set **groupId** (e.g. from **Group → My Groups** response) and adjust **paidBy** / **members** in expense JSON to real member IDs from your DB.\n6. Optional: set **secondMemberId** for settlements.\n\n## Expense attachment (receipt) — base flow\nRun **in order**:\n1. **Expense → Add Expense (Equal Split)** *or* **Personal → Add Personal Expense** — both save **expenseId**.\n2. **Expense → Upload expense attachment** — Body **form-data**: key **`file`**, type **File**, choose `.jpg` / `.png` / `.pdf`. Do **not** set `Content-Type` manually. Saves **attachmentId** on success.\n3. **List expense attachments** — expects 200 and `data` array.\n4. **Delete expense attachment** — uses **attachmentId**.\n\n**Negative tests:** *Upload attachment - No file*, *Upload attachment - Invalid extension (.txt)*.\n\n## Test everything in Postman\n**Collection** → **Run** (Runner) → select folders (**Auth**, **Group**, **Expense**, **Settlement**, **Subscription**, **Member**, **Personal**, **Security Tests**) → **Run FinTrackPortal**. Fix **groupId** and member IDs first; attachment upload still needs you to pick a file for that request.\n\n**Bearer auth** is inherited: **Login** uses no auth; other requests use `{{token}}`.",
+		"description": "FinTrack / FinShare — full API collection with **Tests** tab assertions.\n\n## Setup\n1. Import **FinTrackPortal.postman_environment_Local.json** or **FinTrackPortal.postman_environment_Production.json**.\n2. Select that environment (top right).\n3. Set **loginEmail** and **loginPassword**.\n4. Run **Auth → Login** once (saves **token**, **memberId**, **email** to collection variables; Postman stores the **`finshare_refresh`** cookie for **{{baseUrl}}**).\n5. Optional: **Auth → Refresh** — new JWT without re-entering password (requires cookie from step 4). **Auth → Revoke** clears the refresh session.\n6. Set **groupId** (e.g. from **Group → My Groups** response) and adjust **paidBy** / **members** in expense JSON to real member IDs from your DB.\n7. Optional: set **secondMemberId** for settlements.\n\n## Expense attachment (receipt) — base flow\nRun **in order**:\n1. **Expense → Add Expense (Equal Split)** *or* **Personal → Add Personal Expense** — both save **expenseId**.\n2. **Expense → Upload expense attachment** — Body **form-data**: key **`file`**, type **File**, choose `.jpg` / `.png` / `.pdf`. Do **not** set `Content-Type` manually. Saves **attachmentId** on success.\n3. **List expense attachments** — expects 200 and `data` array.\n4. **Delete expense attachment** — uses **attachmentId**.\n\n**Negative tests:** *Upload attachment - No file*, *Upload attachment - Invalid extension (.txt)*.\n\n## Test everything in Postman\n**Collection** → **Run** (Runner) → select folders (**Auth**, **Group**, **Expense**, **Settlement**, **Subscription**, **Member**, **Personal**, **Security Tests**) → **Run FinTrackPortal**. Fix **groupId** and member IDs first; attachment upload still needs you to pick a file for that request.\n\n**Bearer auth** is inherited: **Login** uses no auth; other requests use `{{token}}`.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -115,6 +115,52 @@
 					"response": []
 				},
 				{
+					"name": "Refresh token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var j = pm.response.json();",
+									"if (j.success && j.data && j.data.token) {",
+									"    pm.collectionVariables.set('token', j.data.token);",
+									"    if (j.data.memberId) pm.collectionVariables.set('memberId', String(j.data.memberId));",
+									"    if (j.data.email) pm.collectionVariables.set('email', j.data.email);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/Auth/refresh",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Auth", "refresh"]
+						},
+						"description": "Run **Login** first so Postman has the **`finshare_refresh`** httpOnly cookie for this host. Returns a new JWT and rotates the cookie; updates **token** like Login."
+					},
+					"response": []
+				},
+				{
+					"name": "Revoke (logout)",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/Auth/revoke",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Auth", "revoke"]
+						},
+						"description": "Revokes the refresh session and clears the cookie. Call **Login** again before **Refresh**."
+					},
+					"response": []
+				},
+				{
 					"name": "Login - Invalid Password",
 					"request": {
 						"auth": {
@@ -201,6 +247,25 @@
 							"path": ["api", "Auth", "verify-email"]
 						},
 						"description": "Set collection variable verifyToken from the email link (or DB EmailVerifyToken)."
+					},
+					"response": []
+				},
+				{
+					"name": "Resend verification email",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{loginEmail}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/Auth/resend-verification",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "Auth", "resend-verification"]
+						},
+						"description": "Generic success response; rate-limited per IP (see README). Email sent only if account exists and is unverified."
 					},
 					"response": []
 				},
