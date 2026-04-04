@@ -18,10 +18,12 @@ namespace FinTrackPortal.API.Controllers
     public class SettlementController : ControllerBase
     {
         private readonly ISettlementService _settlementService;
+        private readonly IBankDetailsService _bankDetails;
 
-        public SettlementController(ISettlementService settlementService)
+        public SettlementController(ISettlementService settlementService, IBankDetailsService bankDetails)
         {
             _settlementService = settlementService;
+            _bankDetails = bankDetails;
         }
 
         /// <summary>POST /api/Settlement/record — Record that one member paid another.</summary>
@@ -80,6 +82,20 @@ namespace FinTrackPortal.API.Controllers
 
             return Ok(ApiResponse<List<SuggestedSettlementResponse>>.SuccessResponse(
                 result.Data!, "Suggested settlements calculated"));
+        }
+
+        /// <summary>
+        /// GET /api/Settlement/{settlementId}/payee-bank-details — full IBAN for the payee; only the payer (FromMember) may call.
+        /// </summary>
+        [HttpGet("{settlementId:decimal}/payee-bank-details")]
+        public async Task<IActionResult> GetPayeeBankDetails(decimal settlementId)
+        {
+            var memberId = User.GetMemberId();
+            var result = await _bankDetails.GetPayeeBankForSettlementAsync(settlementId, memberId);
+            if (!result.IsSuccess)
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    ApiResponse<object?>.ErrorResponse(result.ErrorMessage ?? "Forbidden."));
+            return Ok(ApiResponse<PayeeBankDetailsForSettlementResponse>.SuccessResponse(result.Data!, "OK"));
         }
     }
 }

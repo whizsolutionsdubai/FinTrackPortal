@@ -12,6 +12,7 @@ namespace FinTrackPortal.Repositories
     /// <summary>
     /// Dapper implementation of <see cref="IUserRepository"/>.
     /// All queries go through SQL Server stored procedures — no inline SQL.
+    /// User-specific SP row types: <c>FinTrackPortal.Models/Data/UserRepositorySpResultRows.cs</c>; shared <c>SpRowsUpdatedRow</c>: <c>FinTrackPortal.Models/Data/SharedSpResultRows.cs</c>.
     /// </summary>
     public class UserRepository : IUserRepository
     {
@@ -33,7 +34,7 @@ namespace FinTrackPortal.Repositories
             {
                 using var conn = Connection;
 
-                var row = await conn.QueryFirstOrDefaultAsync<ValidateUserRow>(
+                var row = await conn.QueryFirstOrDefaultAsync<UserValidateUserSpRow>(
                     "sp_ValidateUser",
                     new { UserName = username },
                     commandType: CommandType.StoredProcedure);
@@ -134,7 +135,7 @@ namespace FinTrackPortal.Repositories
             try
             {
                 using var conn = Connection;
-                var row = await conn.QueryFirstOrDefaultAsync<VerifyEmailRow>(
+                var row = await conn.QueryFirstOrDefaultAsync<UserVerifyEmailSpRow>(
                     "sp_VerifyEmail",
                     new { Token = token },
                     commandType: CommandType.StoredProcedure);
@@ -187,7 +188,7 @@ namespace FinTrackPortal.Repositories
         public async Task<OperationResult<long>> ResetPasswordWithTokenAsync(string token, string newPlainPassword)
         {
             using var conn = Connection;
-            var row = await conn.QueryFirstOrDefaultAsync<ResetPasswordRow>(
+            var row = await conn.QueryFirstOrDefaultAsync<UserResetPasswordSpRow>(
                 "sp_ResetPassword",
                 new { Token = token, NewPasswordHash = HashPassword(newPlainPassword) },
                 commandType: CommandType.StoredProcedure);
@@ -198,29 +199,55 @@ namespace FinTrackPortal.Repositories
             return OperationResult<long>.Success(row.MemberId.Value);
         }
 
+        public async Task<UserProfileResponse?> GetUserProfileAsync(long memberId)
+        {
+            using var conn = Connection;
+            return await conn.QueryFirstOrDefaultAsync<UserProfileResponse>(
+                "sp_GetUserProfile",
+                new { MemberId = memberId },
+                commandType: CommandType.StoredProcedure);
+        }
+
+        public async Task<bool> UpdateUserProfileAsync(long memberId, string name, string? phoneNumber, string modifiedBy)
+        {
+            using var conn = Connection;
+            var row = await conn.QueryFirstOrDefaultAsync<UserUpdateProfileSpRow>(
+                "sp_UpdateUserProfile",
+                new { MemberId = memberId, Name = name, PhoneNumber = phoneNumber, ModifiedBy = modifiedBy },
+                commandType: CommandType.StoredProcedure);
+            return row?.Success == true;
+        }
+
+        public async Task<int> UpdateProfilePhotoUrlAsync(long memberId, string photoUrl, string modifiedBy)
+        {
+            using var conn = Connection;
+            var row = await conn.QueryFirstOrDefaultAsync<SpRowsUpdatedRow>(
+                "sp_UpdateProfilePhoto",
+                new { MemberId = memberId, PhotoUrl = photoUrl, ModifiedBy = modifiedBy },
+                commandType: CommandType.StoredProcedure);
+            return row?.RowsUpdated ?? 0;
+        }
+
+        public async Task<UserAuthCredentialRow?> GetUserAuthByMemberIdAsync(long memberId)
+        {
+            using var conn = Connection;
+            return await conn.QueryFirstOrDefaultAsync<UserAuthCredentialRow>(
+                "sp_GetUserAuthByMemberId",
+                new { MemberId = memberId },
+                commandType: CommandType.StoredProcedure);
+        }
+
+        public async Task<int> UpdatePasswordHashByMemberIdAsync(long memberId, string newPasswordHash, string modifiedBy)
+        {
+            using var conn = Connection;
+            var row = await conn.QueryFirstOrDefaultAsync<SpRowsUpdatedRow>(
+                "sp_UpdateUserPasswordByMemberId",
+                new { MemberId = memberId, NewPasswordHash = newPasswordHash, ModifiedBy = modifiedBy },
+                commandType: CommandType.StoredProcedure);
+            return row?.RowsUpdated ?? 0;
+        }
+
         private static string HashPassword(string password)
             => BCrypt.Net.BCrypt.HashPassword(password, workFactor: 12);
-
-        private sealed class ValidateUserRow
-        {
-            public long MemberId { get; set; }
-            public string? PasswordHash { get; set; }
-            public bool IsEmailVerified { get; set; }
-            public DateTime? LockoutUntil { get; set; }
-            public int FailedLoginCount { get; set; }
-        }
-
-        private sealed class VerifyEmailRow
-        {
-            public bool Success { get; set; }
-            public string? Message { get; set; }
-            public long? MemberId { get; set; }
-        }
-
-        private sealed class ResetPasswordRow
-        {
-            public int RowsUpdated { get; set; }
-            public long? MemberId { get; set; }
-        }
     }
 }

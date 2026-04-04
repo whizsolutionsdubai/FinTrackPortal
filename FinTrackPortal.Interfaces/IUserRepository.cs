@@ -1,6 +1,7 @@
 using FinTrackPortal.Common;
 using FinTrackPortal.Models;
 
+
 namespace FinTrackPortal.Interfaces
 {
     /// <summary>
@@ -39,5 +40,15 @@ namespace FinTrackPortal.Interfaces
 
         /// <summary>Hashes <paramref name="newPlainPassword"/> and updates row if token is valid and not expired. Returns MemberId on success.</summary>
         Task<OperationResult<long>> ResetPasswordWithTokenAsync(string token, string newPlainPassword);
+
+        Task<UserProfileResponse?> GetUserProfileAsync(long memberId);
+
+        Task<bool> UpdateUserProfileAsync(long memberId, string name, string? phoneNumber, string modifiedBy);
+
+        Task<int> UpdateProfilePhotoUrlAsync(long memberId, string photoUrl, string modifiedBy);
+
+        Task<UserAuthCredentialRow?> GetUserAuthByMemberIdAsync(long memberId);
+
+        Task<int> UpdatePasswordHashByMemberIdAsync(long memberId, string newPasswordHash, string modifiedBy);
     }
 }

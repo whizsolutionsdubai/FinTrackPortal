@@ -1,4 +1,3 @@
-
 using FinTrackPortal.API.Services;
 using FinTrackPortal.Interfaces;
 using FinTrackPortal.Models;
@@ -161,6 +160,18 @@ builder.Services.AddScoped<ISettlementService, SettlementService>();
 builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
+builder.Services.AddSingleton<IEncryptionService, EncryptionService>();
+builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
+builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IBankDetailsRepository, BankDetailsRepository>();
+builder.Services.AddScoped<IBankDetailsService, BankDetailsService>();
+builder.Services.AddScoped<IGroupEventRepository, GroupEventRepository>();
+builder.Services.AddScoped<IGroupEventService, GroupEventService>();
+builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<IProfilePhotoService, ProfilePhotoService>();
+
 var attachmentProvider = builder.Configuration["AttachmentStorage:Provider"]?.Trim() ?? "Azure";
 if (string.Equals(attachmentProvider, "Local", StringComparison.OrdinalIgnoreCase))
     builder.Services.AddScoped<IAttachmentStorageService, LocalFileStorageService>();
@@ -254,7 +265,7 @@ else
 }
 
 app.UseSwagger();
-app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "FinTrack WHIZ SOLUTIONS v1"));
+app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "FinTrack WHIZ SOLUTIONS v3"));
 
 app.UseForwardedHeaders();
 app.UseHttpsRedirection();

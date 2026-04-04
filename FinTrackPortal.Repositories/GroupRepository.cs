@@ -12,6 +12,7 @@ namespace FinTrackPortal.Repositories
     /// <summary>
     /// Dapper implementation of <see cref="IGroupRepository"/>.
     /// All queries go through SQL Server stored procedures — no inline SQL.
+    /// SP row shapes for <c>sp_GetGroupSummary</c>: <c>FinTrackPortal.Models/Data/GroupRepositorySpResultRows.cs</c>.
     /// </summary>
     public class GroupRepository : IGroupRepository
     {
@@ -74,7 +75,7 @@ namespace FinTrackPortal.Repositories
             {
                 using var conn = Connection;
 
-                var rows = (await conn.QueryAsync<GroupSummaryRow>(
+                var rows = (await conn.QueryAsync<GroupSummarySpRow>(
                     "sp_GetGroupSummary",
                     new { GroupId = groupId },
                     commandType: CommandType.StoredProcedure)).ToList();
@@ -183,16 +184,5 @@ namespace FinTrackPortal.Repositories
             return $"{initials}-{random}";
         }
 
-        /// <summary>Internal DTO for the flat rows returned by sp_GetGroupSummary before grouping.</summary>
-        private class GroupSummaryRow
-        {
-            public string GroupName { get; set; } = string.Empty;
-            public string GroupCode { get; set; } = string.Empty;
-            public long MemberId { get; set; }
-            public string Name { get; set; } = string.Empty;
-            public decimal Paid { get; set; }
-            public decimal Share { get; set; }
-            public decimal Net { get; set; }
-        }
     }
 }

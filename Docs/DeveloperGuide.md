@@ -67,7 +67,9 @@ HTTP Request
 | `FinTrackPortal.Services/` | Service interfaces + implementations |
 | `FinTrackPortal.Repositories/` | Dapper repositories (`UserRepository`, `RefreshTokenRepository`, `AuditLogRepository`, …) |
 | `FinTrackPortal.Interfaces/` | Repository interfaces (`IUserRepository`, `IRefreshTokenRepository`, `IAuditLogRepository`, …) |
-| `FinTrackPortal.Models/` | Request/response DTOs |
+| `FinTrackPortal.Models/` | Request/response DTOs, entities, and Dapper/SP row types under **`Data/`** (e.g. `UserRepositorySpResultRows.cs`, `SharedSpResultRows.cs`, `GroupRepositorySpResultRows.cs`), plus feature folders (`Auth`, `User`, `Member`, `Group`, `Expense`, …). The project is already named *Models*, so there is **no** extra nested `Models/` folder — namespace remains **`FinTrackPortal.Models`** |
+
+**Group events:** `PUT`/`DELETE` …`/api/Group/{groupId}/events/{eventId}` require `sp_UpdateGroupEvent` / `sp_DeleteGroupEvent` to accept **`@GroupId`** so the event belongs to the group in the URL (see migration step 5 or `FinTrackDB_Migration_Production_GroupEvents_GroupIdGuard.sql`).
 | `FinTrackPortal.Common/` | `ApiResponse<T>`, `OperationResult<T>` |
 | `Database/FinTrackDB_Schema.sql` | Full database script |
 | `Docs/` | [README.md](README.md) (index), this guide, [AppSettings](AppSettings.md), [Email setup](Email-Microsoft365-Setup.md), [WhatToDoAndWhere](WhatToDoAndWhere.md), images |

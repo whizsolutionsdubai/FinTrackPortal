@@ -117,6 +117,46 @@ The **Auth enhancements** migration (step 2 in the [Database Schema](#database-s
 | PUT | `/api/Member/edit` | Edit member name |
 | DELETE | `/api/Member/delete/{memberId}` | Soft-delete a member |
 
+### Current user (`api/User`)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/User/profile` | Display name, email, phone, profile photo URL |
+| PUT | `/api/User/profile` | Update name and phone (not email) |
+| POST | `/api/User/profile/photo` | Form field **`photo`** — JPEG/PNG, resized to 200×200 |
+| PUT | `/api/User/change-password` | **Current** + **new** password; revokes all refresh tokens |
+| GET | `/api/User/bank-details` | Saved bank row (masked IBAN) |
+| PUT | `/api/User/bank-details` | Save/update IBAN (requires **`Encryption`** in config) |
+| DELETE | `/api/User/bank-details` | Remove saved bank details |
+
+### Transactions (`api/Transaction`)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/Transaction/history?skip=&take=` | Expenses + settlements involving the current user |
+
+### Notifications (`api/Notification`)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/Notification?unreadOnly=&take=` | List notifications |
+| PUT | `/api/Notification/{id}/read` | Mark one as read |
+
+### Group events (`api/Group/{groupId}/events`)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/Group/{groupId}/events` | List events (members only) |
+| POST | `/api/Group/{groupId}/events` | Create event |
+| PUT | `/api/Group/{groupId}/events/{eventId}` | Update (creator only) |
+| DELETE | `/api/Group/{groupId}/events/{eventId}` | Soft-delete (creator only) |
+
+### Settlements — payee bank (`api/Settlement`)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/Settlement/{settlementId}/payee-bank-details` | Full **decrypted** IBAN for the payee; **only the payer** (`FromMember`) may call |
+
 > All endpoints except **Auth** (including **`/refresh`** and **`/revoke`**), **GET /api/Subscription/plans**, and **Swagger** require a valid **JWT Bearer** token on each request. The refresh cookie is separate and is used only to obtain a new JWT.
 
 ## Configuration
@@ -131,8 +171,9 @@ The **Auth enhancements** migration (step 2 in the [Database Schema](#database-s
 | `AttachmentStorage:Provider` | `Azure` (default in repo) or `Local` |
 | `AzureStorage` | `ConnectionString`, `ContainerName` — used when `Provider` is `Azure` |
 | `LocalStorage` | `Path` (folder on disk or relative to app root), `PublicBaseUrl` (public URL prefix for files, e.g. `https://your-site/attachments`) |
+| `Encryption` | `Key` (32-byte base64), `IV` (16-byte base64) — required for **bank IBAN** encryption (`MemberBankDetails`). Leave empty locally if you do not use bank APIs. |
 
-When **`AttachmentStorage:Provider`** is **`Local`**, the API saves files under `LocalStorage:Path`, serves them at `/attachments`, and stores URLs in `ExpenseAttachment`. When **`Azure`**, files go to Blob Storage.
+When **`AttachmentStorage:Provider`** is **`Local`**, the API saves files under `LocalStorage:Path`, serves them at `/attachments`, and stores URLs in `ExpenseAttachment`. Profile photos are stored under `profiles/` in the same folder or as `profiles/{memberId}.jpg` in Azure. When **`Azure`**, files go to Blob Storage.
 
 ### Production: `appsettings.Production.json`
 
@@ -170,8 +211,13 @@ Use only when you intend to rebuild the database; read the script header.
 | 2 | `Database/FinTrackDB_Migration_Production_AuthEnhancements.sql` | Email verify + password reset columns and auth SPs |
 | 3 | `Database/FinTrackDB_Migration_Production_SecurityPhase2.sql` | Lockout, `AuditLogs`, token cleanup, audit SPs, `sp_ResetLoginAttempts` |
 | 4 | `Database/FinTrackDB_Migration_UserRefreshTokens.sql` | `UserRefreshTokens`, refresh SPs, `sp_GetUserEmailByMemberId`, extends `sp_CleanupExpiredTokens` |
+| 5 | `Database/FinTrackDB_Migration_NewFeatures_Phase3to5.sql` | Profile (`ProfilePhotoUrl`), transaction history SPs, `Notifications`, `MemberBankDetails`, `GroupEvents` |
 
 Optional: `Database/FinTrackDB_Migration_sp_ResetLoginAttempts.sql` only if you already ran Phase 2 before that procedure existed.
+
+Optional: `Database/FinTrackDB_Migration_Production_GroupEvents_GroupIdGuard.sql` — run **only** if you applied step 5 **before** `sp_UpdateGroupEvent` / `sp_DeleteGroupEvent` took `@GroupId` (keeps route `groupId` and DB row in sync; newer copies of step 5 already include this).
+
+Optional: `Database/FinTrackDB_Migration_Production_Notifications_RenameTable.sql` — run if an older step 5 used **`dbo.Notification`** or **`CreatedAt`** without **`ModifiedDate`** / **`IsActive`**; aligns with **`FinTrackDB_Schema.sql`** (`CreatedDate`, `ModifiedDate`, `IsActive`) and refreshes notification SPs.
 
 After **`sp_ValidateUser`** / BCrypt changes, users need valid **BCrypt** `PasswordHash` (re-register, password reset, or controlled `UPDATE`). **`FinTrackDB_Migration_Production_AuthEnhancements.sql`** can set existing users `IsEmailVerified = 1` so logins keep working — see script comments.
 
@@ -194,6 +240,9 @@ After **`sp_ValidateUser`** / BCrypt changes, users need valid **BCrypt** `Passw
 | `Organisation` / `CostCenter` | Corporate foundation (reserved for future use) |
 | `AuditLogs` / `AuditLogs_Archive` | Security audit trail (Phase 2); retention via `sp_ArchiveAuditLogsRetention` |
 | `UserRefreshTokens` | Opaque refresh tokens for JWT rotation (httpOnly cookie flow) |
+| `Notifications` | In-app notifications per member (`CreatedDate` / `ModifiedDate` / `IsActive`, same audit style as `Expense`, `Member`) |
+| `MemberBankDetails` | Encrypted IBAN + masked display (one row per member) |
+| `GroupEvents` | Group calendar events (soft-delete) |
 
 Stored procedures are documented inline in `FinTrackDB_Schema.sql` and summarized in the Developer Guide.
 
