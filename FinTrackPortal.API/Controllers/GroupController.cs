@@ -18,11 +18,16 @@ namespace FinTrackPortal.API.Controllers
     {
         private readonly IGroupService _groupService;
         private readonly ISubscriptionService _subscriptionService;
+        private readonly INotificationService _notifications;
 
-        public GroupController(IGroupService groupService, ISubscriptionService subscriptionService)
+        public GroupController(
+            IGroupService groupService,
+            ISubscriptionService subscriptionService,
+            INotificationService notifications)
         {
             _groupService = groupService;
             _subscriptionService = subscriptionService;
+            _notifications = notifications;
         }
 
         /// <summary>
@@ -85,6 +90,18 @@ namespace FinTrackPortal.API.Controllers
 
             if (!result.IsSuccess)
                 return BadRequest(ApiResponse<object?>.ErrorResponse("Failed to add member", result.ErrorMessage!));
+
+            var groupSummary = await _groupService.GetGroupSummaryAsync(request.GroupId);
+            var groupName = groupSummary.IsSuccess && groupSummary.Data != null
+                ? groupSummary.Data.GroupName
+                : $"#{request.GroupId}";
+
+            await _notifications.CreateAsync(
+                request.MemberId,
+                "Added to Group",
+                $"You have been added to group '{groupName}'",
+                "group",
+                $"/group/{request.GroupId}");
 
             return Ok(ApiResponse<object>.SuccessResponse(new
             {

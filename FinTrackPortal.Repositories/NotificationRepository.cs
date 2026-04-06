@@ -57,6 +57,22 @@ public sealed class NotificationRepository : INotificationRepository
         }
     }
 
+    public async Task MarkAllReadAsync(long memberId)
+    {
+        try
+        {
+            using var conn = Connection;
+            await conn.ExecuteAsync(
+                "sp_MarkAllNotificationsRead",
+                new { MemberId = memberId },
+                commandType: CommandType.StoredProcedure);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "MarkAllReadAsync");
+        }
+    }
+
     public async Task<long> CreateAsync(long memberId, string title, string? body, string? notificationType, string? linkUrl)
     {
         try

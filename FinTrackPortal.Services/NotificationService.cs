@@ -21,6 +21,9 @@ public sealed class NotificationService : INotificationService
         return n > 0;
     }
 
+    public Task MarkAllReadAsync(long memberId)
+        => _repository.MarkAllReadAsync(memberId);
+
     public Task<long> CreateAsync(long memberId, string title, string? body, string? notificationType, string? linkUrl)
         => _repository.CreateAsync(memberId, title, body, notificationType, linkUrl);
 }

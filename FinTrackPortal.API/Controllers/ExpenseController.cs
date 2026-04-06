@@ -21,12 +21,18 @@ namespace FinTrackPortal.API.Controllers
         private readonly IExpenseService _expenseService;
         private readonly IGroupService _groupService;
         private readonly IAttachmentStorageService _attachmentStorage;
+        private readonly INotificationService _notifications;
 
-        public ExpenseController(IExpenseService expenseService, IGroupService groupService, IAttachmentStorageService attachmentStorage)
+        public ExpenseController(
+            IExpenseService expenseService,
+            IGroupService groupService,
+            IAttachmentStorageService attachmentStorage,
+            INotificationService notifications)
         {
             _expenseService = expenseService;
             _groupService = groupService;
             _attachmentStorage = attachmentStorage;
+            _notifications = notifications;
         }
 
         /// <summary>
@@ -74,6 +80,7 @@ namespace FinTrackPortal.API.Controllers
                 request.GroupId,
                 request.Description,
                 request.Amount,
+                request.CurrencyCode,
                 request.PaidBy,
                 request.SplitType,
                 request.Members,
@@ -82,6 +89,20 @@ namespace FinTrackPortal.API.Controllers
 
             if (!result.IsSuccess)
                 return BadRequest(ApiResponse<object?>.ErrorResponse("Failed to add expense", result.ErrorMessage!));
+
+            var members = await _groupService.GetGroupMembersAsync(request.GroupId);
+            if (members.IsSuccess && members.Data != null)
+            {
+                foreach (var member in members.Data.Where(m => m.MemberId != memberId))
+                {
+                    await _notifications.CreateAsync(
+                        member.MemberId,
+                        "New Expense Added",
+                        $"{createdBy} added '{request.Description}' - {request.Amount:N2} {request.CurrencyCode}",
+                        "expense",
+                        $"/group/{request.GroupId}");
+                }
+            }
 
             return Ok(ApiResponse<object>.SuccessResponse(new
             {
@@ -118,6 +139,7 @@ namespace FinTrackPortal.API.Controllers
                 request.ExpenseId,
                 request.Description,
                 request.Amount,
+                request.CurrencyCode,
                 request.PaidBy,
                 request.SplitType,
                 request.Members,
@@ -180,6 +202,7 @@ namespace FinTrackPortal.API.Controllers
             var result = await _expenseService.AddPersonalExpenseAsync(
                 request.Description,
                 request.Amount,
+                request.CurrencyCode,
                 memberId,
                 createdBy,
                 request.ExpenseDate,
@@ -197,9 +220,8 @@ namespace FinTrackPortal.API.Controllers
             }, "Personal expense added successfully"));
         }
 
-        /// <summary>GET /api/Expense/personal or /api/Expense/personal/my — List personal/office expenses; optional category filter (Personal, Office).</summary>
+        /// <summary>GET /api/Expense/personal — List personal/office expenses; optional category filter (Personal, Office).</summary>
         [HttpGet("personal")]
-        [HttpGet("personal/my")]
         public async Task<IActionResult> GetPersonal([FromQuery] string? category)
         {
             var memberId = User.GetMemberId();
@@ -230,6 +252,7 @@ namespace FinTrackPortal.API.Controllers
                 memberId,
                 request.Description,
                 request.Amount,
+                request.CurrencyCode,
                 request.ExpenseDate,
                 request.AccountId,
                 request.ExpenseCategory,

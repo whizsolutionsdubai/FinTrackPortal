@@ -216,7 +216,7 @@ Do not commit `bin/**` XML files; they are build artifacts.
 | DELETE | `/api/Expense/delete/{expenseId}` |
 | GET | `/api/Expense/group/{groupId}` |
 | POST | `/api/Expense/personal` |
-| GET | `/api/Expense/personal` or `/api/Expense/personal/my` (`?category=` optional) |
+| GET | `/api/Expense/personal` (`?category=` optional) |
 | PUT | `/api/Expense/personal/edit` |
 | POST | `/api/Expense/move` |
 | POST | `/api/Expense/payer` |

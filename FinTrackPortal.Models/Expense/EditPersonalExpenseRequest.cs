@@ -16,6 +16,9 @@ namespace FinTrackPortal.Models
         [Range(0.01, double.MaxValue)]
         public decimal Amount { get; set; }
 
+        [StringLength(3)]
+        public string? CurrencyCode { get; set; }
+
         public DateTime? ExpenseDate { get; set; }
 
         public long? AccountId { get; set; }

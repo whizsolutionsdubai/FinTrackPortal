@@ -10,6 +10,7 @@ namespace FinTrackPortal.Models
         public long? GroupId { get; set; }
         public string Description { get; set; } = string.Empty;
         public decimal Amount { get; set; }
+        public string CurrencyCode { get; set; } = "AED";
         public long PaidBy { get; set; }
         public string PaidByName { get; set; } = string.Empty;
         public string SplitType { get; set; } = string.Empty;

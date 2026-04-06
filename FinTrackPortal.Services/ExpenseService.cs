@@ -14,11 +14,11 @@ namespace FinTrackPortal.Services
             _repository = repository;
         }
 
-        public Task<OperationResult<long>> AddExpenseAsync(long groupId, string description, decimal amount, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string createdBy)
-            => _repository.AddExpenseAsync(groupId, description, amount, paidBy, splitType, members, customAmounts, createdBy);
+        public Task<OperationResult<long>> AddExpenseAsync(long groupId, string description, decimal amount, string currencyCode, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string createdBy)
+            => _repository.AddExpenseAsync(groupId, description, amount, currencyCode, paidBy, splitType, members, customAmounts, createdBy);
 
-        public Task<OperationResult<bool>> EditExpenseAsync(long expenseId, string description, decimal amount, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string modifiedBy, string? expenseCategory, string? forReference)
-            => _repository.EditExpenseAsync(expenseId, description, amount, paidBy, splitType, members, customAmounts, modifiedBy, expenseCategory, forReference);
+        public Task<OperationResult<bool>> EditExpenseAsync(long expenseId, string description, decimal amount, string? currencyCode, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string modifiedBy, string? expenseCategory, string? forReference)
+            => _repository.EditExpenseAsync(expenseId, description, amount, currencyCode, paidBy, splitType, members, customAmounts, modifiedBy, expenseCategory, forReference);
 
         public Task<OperationResult<bool>> DeleteExpenseAsync(long expenseId, string modifiedBy)
             => _repository.DeleteExpenseAsync(expenseId, modifiedBy);
@@ -26,11 +26,11 @@ namespace FinTrackPortal.Services
         public Task<OperationResult<List<ExpenseResponse>>> GetExpensesByGroupAsync(long groupId)
             => _repository.GetExpensesByGroupAsync(groupId);
 
-        public Task<OperationResult<long>> AddPersonalExpenseAsync(string description, decimal amount, long memberId, string createdBy, DateTime? expenseDate, long? accountId, string? expenseCategory, string? forReference)
-            => _repository.AddPersonalExpenseAsync(description, amount, memberId, createdBy, expenseDate, accountId, expenseCategory, forReference);
+        public Task<OperationResult<long>> AddPersonalExpenseAsync(string description, decimal amount, string currencyCode, long memberId, string createdBy, DateTime? expenseDate, long? accountId, string? expenseCategory, string? forReference)
+            => _repository.AddPersonalExpenseAsync(description, amount, currencyCode, memberId, createdBy, expenseDate, accountId, expenseCategory, forReference);
 
-        public Task<OperationResult<bool>> UpdatePersonalExpenseAsync(long expenseId, long memberId, string description, decimal amount, DateTime? expenseDate, long? accountId, string? expenseCategory, string? forReference, string modifiedBy)
-            => _repository.UpdatePersonalExpenseAsync(expenseId, memberId, description, amount, expenseDate, accountId, expenseCategory, forReference, modifiedBy);
+        public Task<OperationResult<bool>> UpdatePersonalExpenseAsync(long expenseId, long memberId, string description, decimal amount, string? currencyCode, DateTime? expenseDate, long? accountId, string? expenseCategory, string? forReference, string modifiedBy)
+            => _repository.UpdatePersonalExpenseAsync(expenseId, memberId, description, amount, currencyCode, expenseDate, accountId, expenseCategory, forReference, modifiedBy);
 
         public Task<OperationResult<List<ExpenseResponse>>> GetPersonalExpensesAsync(long memberId, string? category)
             => _repository.GetPersonalExpensesAsync(memberId, category);

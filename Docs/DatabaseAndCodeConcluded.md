@@ -60,6 +60,7 @@ Back up first. Order matches `README.md`:
 | 3 | `Database/FinTrackDB_Migration_Production_SecurityPhase2.sql` |
 | 4 | `Database/FinTrackDB_Migration_UserRefreshTokens.sql` |
 | 5 | `Database/FinTrackDB_Migration_NewFeatures_Phase3to5.sql` |
+| 6 | `Database/FinTrackDB_Migration_Production_BackendChanges_v6.sql` |
 
 **Optional (only if your DB predates the fix):**
 
@@ -68,6 +69,7 @@ Back up first. Order matches `README.md`:
 | `Database/FinTrackDB_Migration_sp_ResetLoginAttempts.sql` | Phase 2 applied before this procedure existed |
 | `Database/FinTrackDB_Migration_Production_GroupEvents_GroupIdGuard.sql` | Step 5 applied **before** `sp_UpdateGroupEvent` / `sp_DeleteGroupEvent` had `@GroupId` |
 | `Database/FinTrackDB_Migration_Production_Notifications_RenameTable.sql` | Old table `dbo.Notification` **or** `dbo.Notifications` with `CreatedAt` and **without** `ModifiedDate` / `IsActive` |
+| `Database/FinTrackDB_Migration_Production_TestAccounts_EmailVerified.sql` | One-time unblock for two known test emails (`Users.IsEmailVerified = 1`) |
 
 ---
 
@@ -90,7 +92,7 @@ Created/updated in `FinTrackDB_Migration_NewFeatures_Phase3to5.sql` (not repeate
 | Area | Concluded state |
 |------|-----------------|
 | Model | `FinTrackPortal.Models/Notifications/NotificationItem.cs` — **`CreatedDate`**, **`ModifiedDate`** (replaces **`CreatedAt`** on the API model for this resource). |
-| Service | `INotificationService` / `NotificationService` — **`GetAsync`**, **`MarkReadAsync`**, **`CreateAsync`** (create for future cross-module calls, not a public “spam” HTTP endpoint). |
+| Service | `INotificationService` / `NotificationService` — **`GetAsync`**, **`MarkReadAsync`**, **`MarkAllReadAsync`**, **`CreateAsync`**. |
 | API JSON | Clients should use **`createdDate`** / **`modifiedDate`** (camelCase). **`createdAt`** for this resource is **obsolete**. |
 
 ### Nothing removed from the repo

@@ -72,13 +72,12 @@ The **Auth enhancements** migration (step 2 in the [Database Schema](#database-s
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| POST | `/api/Expense/add` | Add a group expense with equal or custom split |
+| POST | `/api/Expense/add` | Add a group expense with equal/custom split (`CurrencyCode`, default `AED`) |
 | PUT | `/api/Expense/edit` | Edit a group expense (optional `ExpenseCategory`, `ForReference` on the request body) |
 | DELETE | `/api/Expense/delete/{expenseId}` | Soft-delete an expense |
 | GET | `/api/Expense/group/{groupId}` | Get expenses for a group |
-| POST | `/api/Expense/personal` | Add a personal/office expense (optional `ExpenseCategory`, `ForReference`, `ExpenseDate`, `AccountId`) |
+| POST | `/api/Expense/personal` | Add a personal/office expense (optional `ExpenseCategory`, `ForReference`, `ExpenseDate`, `AccountId`; includes `CurrencyCode`) |
 | GET | `/api/Expense/personal` | Get personal/office expenses (optional query `?category=Office` or `Personal`) |
-| GET | `/api/Expense/personal/my` | Same as above (alias for clients expecting `/personal/my`) |
 | PUT | `/api/Expense/personal/edit` | Update a personal/office expense |
 | POST | `/api/Expense/move` | Move an expense to a different group |
 | POST | `/api/Expense/payer` | Record a payer amount for multi-payer expenses |
@@ -141,6 +140,7 @@ The **Auth enhancements** migration (step 2 in the [Database Schema](#database-s
 |--------|-------|-------------|
 | GET | `/api/Notification?unreadOnly=&take=` | List notifications |
 | PUT | `/api/Notification/{id}/read` | Mark one as read |
+| PUT | `/api/Notification/read-all` | Mark all as read for the current user |
 
 ### Group events (`api/Group/{groupId}/events`)
 
@@ -212,12 +212,15 @@ Use only when you intend to rebuild the database; read the script header.
 | 3 | `Database/FinTrackDB_Migration_Production_SecurityPhase2.sql` | Lockout, `AuditLogs`, token cleanup, audit SPs, `sp_ResetLoginAttempts` |
 | 4 | `Database/FinTrackDB_Migration_UserRefreshTokens.sql` | `UserRefreshTokens`, refresh SPs, `sp_GetUserEmailByMemberId`, extends `sp_CleanupExpiredTokens` |
 | 5 | `Database/FinTrackDB_Migration_NewFeatures_Phase3to5.sql` | Profile (`ProfilePhotoUrl`), transaction history SPs, `Notifications`, `MemberBankDetails`, `GroupEvents` |
+| 6 | `Database/FinTrackDB_Migration_Production_BackendChanges_v6.sql` | `Expense.CurrencyCode`, expense SP currency parameters/result fields, `sp_MarkAllNotificationsRead` |
 
 Optional: `Database/FinTrackDB_Migration_sp_ResetLoginAttempts.sql` only if you already ran Phase 2 before that procedure existed.
 
 Optional: `Database/FinTrackDB_Migration_Production_GroupEvents_GroupIdGuard.sql` — run **only** if you applied step 5 **before** `sp_UpdateGroupEvent` / `sp_DeleteGroupEvent` took `@GroupId` (keeps route `groupId` and DB row in sync; newer copies of step 5 already include this).
 
 Optional: `Database/FinTrackDB_Migration_Production_Notifications_RenameTable.sql` — run if an older step 5 used **`dbo.Notification`** or **`CreatedAt`** without **`ModifiedDate`** / **`IsActive`**; aligns with **`FinTrackDB_Schema.sql`** (`CreatedDate`, `ModifiedDate`, `IsActive`) and refreshes notification SPs.
+
+Optional: `Database/FinTrackDB_Migration_Production_TestAccounts_EmailVerified.sql` — one-time unblock for specific test users (`IsEmailVerified = 1` in `Users`).
 
 After **`sp_ValidateUser`** / BCrypt changes, users need valid **BCrypt** `PasswordHash` (re-register, password reset, or controlled `UPDATE`). **`FinTrackDB_Migration_Production_AuthEnhancements.sql`** can set existing users `IsEmailVerified = 1` so logins keep working — see script comments.
 

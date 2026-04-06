@@ -19,11 +19,16 @@ namespace FinTrackPortal.API.Controllers
     {
         private readonly ISettlementService _settlementService;
         private readonly IBankDetailsService _bankDetails;
+        private readonly INotificationService _notifications;
 
-        public SettlementController(ISettlementService settlementService, IBankDetailsService bankDetails)
+        public SettlementController(
+            ISettlementService settlementService,
+            IBankDetailsService bankDetails,
+            INotificationService notifications)
         {
             _settlementService = settlementService;
             _bankDetails = bankDetails;
+            _notifications = notifications;
         }
 
         /// <summary>POST /api/Settlement/record — Record that one member paid another.</summary>
@@ -49,6 +54,14 @@ namespace FinTrackPortal.API.Controllers
             if (!result.IsSuccess)
                 return BadRequest(ApiResponse<object?>.ErrorResponse(
                     "Failed to record settlement", result.ErrorMessage!));
+
+            var fromName = User.GetEmail();
+            await _notifications.CreateAsync(
+                request.ToMemberId,
+                "Settlement Received",
+                $"{fromName} marked a payment of {request.Amount:N2} to you",
+                "settlement",
+                "/settlement");
 
             return Ok(ApiResponse<object>.SuccessResponse(new
             {

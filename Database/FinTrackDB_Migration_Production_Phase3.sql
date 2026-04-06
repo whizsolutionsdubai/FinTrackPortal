@@ -58,6 +58,23 @@ BEGIN
 END
 GO
 
+IF COL_LENGTH(N'dbo.Expense', N'CurrencyCode') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[Expense]
+    ADD [CurrencyCode] [nvarchar](3) NULL
+        CONSTRAINT [DF_Expense_CurrencyCode] DEFAULT (N'AED');
+END
+GO
+
+UPDATE [dbo].[Expense]
+SET [CurrencyCode] = N'AED'
+WHERE [CurrencyCode] IS NULL;
+GO
+
+ALTER TABLE [dbo].[Expense]
+ALTER COLUMN [CurrencyCode] [nvarchar](3) NOT NULL;
+GO
+
 /* Optional: tag existing personal rows (GroupId IS NULL) as Personal for filtering consistency */
 UPDATE [dbo].[Expense]
 SET [ExpenseCategory] = N'Personal'
@@ -141,6 +158,7 @@ CREATE OR ALTER PROCEDURE [dbo].[sp_AddExpense]
     @GroupId       BIGINT,
     @Description   NVARCHAR(250),
     @Amount        DECIMAL(18,2),
+    @CurrencyCode  NVARCHAR(3) = N'AED',
     @PaidBy        BIGINT,
     @SplitType     NVARCHAR(10) = N'Equal',
     @CreatedBy     NVARCHAR(100),
@@ -149,9 +167,9 @@ AS
 BEGIN
     SET NOCOUNT ON;
     INSERT INTO [dbo].[Expense]
-        ([GroupId], [Description], [Amount], [PaidBy], [ExpenseDate], [SplitType], [AccountId], [CreatedBy], [CreatedDate], [IsActive])
+        ([GroupId], [Description], [Amount], [CurrencyCode], [PaidBy], [ExpenseDate], [SplitType], [AccountId], [CreatedBy], [CreatedDate], [IsActive])
     VALUES
-        (@GroupId, @Description, @Amount, @PaidBy, CAST(GETDATE() AS DATE), @SplitType, @AccountId, @CreatedBy, GETDATE(), 1);
+        (@GroupId, @Description, @Amount, ISNULL(@CurrencyCode, N'AED'), @PaidBy, CAST(GETDATE() AS DATE), @SplitType, @AccountId, @CreatedBy, GETDATE(), 1);
     SELECT SCOPE_IDENTITY();
 END
 GO
@@ -160,6 +178,7 @@ CREATE OR ALTER PROCEDURE [dbo].[sp_UpdateExpense]
     @ExpenseId         BIGINT,
     @Description       NVARCHAR(250) = NULL,
     @Amount            DECIMAL(18,2) = NULL,
+    @CurrencyCode      NVARCHAR(3) = NULL,
     @PaidBy            BIGINT = NULL,
     @SplitType         NVARCHAR(10) = NULL,
     @ModifiedBy        NVARCHAR(100),
@@ -172,6 +191,7 @@ BEGIN
     UPDATE [dbo].[Expense]
     SET [Description]     = ISNULL(@Description, [Description]),
         [Amount]          = ISNULL(@Amount, [Amount]),
+        [CurrencyCode]    = ISNULL(@CurrencyCode, [CurrencyCode]),
         [PaidBy]          = ISNULL(@PaidBy, [PaidBy]),
         [SplitType]       = ISNULL(@SplitType, [SplitType]),
         [AccountId]       = ISNULL(@AccountId, [AccountId]),
@@ -189,7 +209,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SELECT
-        e.[ExpenseId], e.[GroupId], e.[Description], e.[Amount],
+        e.[ExpenseId], e.[GroupId], e.[Description], e.[Amount], e.[CurrencyCode],
         e.[PaidBy], m.[MemberName] AS [PaidByName], e.[SplitType],
         e.[ExpenseDate], e.[ExpenseCategory], e.[ForReference], e.[CreatedDate]
     FROM [dbo].[Expense] e
@@ -202,6 +222,7 @@ GO
 CREATE OR ALTER PROCEDURE [dbo].[sp_AddPersonalExpense]
     @Description      NVARCHAR(250),
     @Amount           DECIMAL(18,2),
+    @CurrencyCode     NVARCHAR(3) = N'AED',
     @MemberId         BIGINT,
     @CreatedBy        NVARCHAR(100),
     @ExpenseDate      DATE = NULL,
@@ -212,10 +233,10 @@ AS
 BEGIN
     SET NOCOUNT ON;
     INSERT INTO [dbo].[Expense]
-        ([GroupId], [Description], [Amount], [PaidBy], [ExpenseDate], [SplitType], [AccountId],
+        ([GroupId], [Description], [Amount], [CurrencyCode], [PaidBy], [ExpenseDate], [SplitType], [AccountId],
          [ExpenseCategory], [ForReference], [CreatedBy], [CreatedDate], [IsActive])
     VALUES
-        (NULL, @Description, @Amount, @MemberId,
+        (NULL, @Description, @Amount, ISNULL(@CurrencyCode, N'AED'), @MemberId,
          ISNULL(@ExpenseDate, CAST(GETDATE() AS DATE)), N'Equal', @AccountId,
          ISNULL(@ExpenseCategory, N'Personal'), @ForReference, @CreatedBy, GETDATE(), 1);
     SELECT SCOPE_IDENTITY() AS [ExpenseId];
@@ -233,6 +254,7 @@ BEGIN
         e.[GroupId],
         e.[Description],
         e.[Amount],
+        e.[CurrencyCode],
         e.[PaidBy],
         m.[MemberName] AS [PaidByName],
         e.[SplitType],
@@ -255,6 +277,7 @@ CREATE OR ALTER PROCEDURE [dbo].[sp_UpdatePersonalExpense]
     @MemberId         BIGINT,
     @Description      NVARCHAR(250),
     @Amount           DECIMAL(18,2),
+    @CurrencyCode     NVARCHAR(3) = NULL,
     @ExpenseDate      DATE = NULL,
     @AccountId        BIGINT = NULL,
     @ExpenseCategory  NVARCHAR(20) = NULL,
@@ -266,6 +289,7 @@ BEGIN
     UPDATE [dbo].[Expense]
     SET [Description]     = @Description,
         [Amount]          = @Amount,
+        [CurrencyCode]    = ISNULL(@CurrencyCode, [CurrencyCode]),
         [ExpenseDate]     = ISNULL(@ExpenseDate, [ExpenseDate]),
         [AccountId]       = ISNULL(@AccountId, [AccountId]),
         [ExpenseCategory] = ISNULL(@ExpenseCategory, [ExpenseCategory]),

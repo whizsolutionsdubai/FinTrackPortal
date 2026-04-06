@@ -277,6 +277,20 @@ BEGIN
 END
 GO
 
+CREATE OR ALTER PROCEDURE dbo.sp_MarkAllNotificationsRead
+    @MemberId BIGINT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE dbo.Notifications
+    SET IsRead = 1,
+        ModifiedDate = GETUTCDATE()
+    WHERE MemberId = @MemberId AND IsRead = 0 AND IsActive = 1;
+
+    SELECT @@ROWCOUNT AS RowsUpdated;
+END
+GO
+
 CREATE OR ALTER PROCEDURE dbo.sp_CreateNotification
     @MemberId BIGINT,
     @Title NVARCHAR(200),

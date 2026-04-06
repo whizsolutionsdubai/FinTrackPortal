@@ -48,7 +48,7 @@ The PDF is an **April 2025** backlog; this table reflects the **current repo**. 
 | **3A** Profile + photo | **Done** | `UserController`, **`FinTrackDB_Migration_NewFeatures_Phase3to5.sql`**. |
 | **3B** Change password | **Done** | `PUT /api/User/change-password`; SPs `sp_GetUserAuthByMemberId` / `sp_UpdateUserPasswordByMemberId` (PDF may say `sp_ChangePassword` — same behaviour). |
 | **3C** Transaction history | **Done** | One endpoint returns **history + summary** (`GET /api/Transaction/history`); PDF mentioned two endpoints — **combined**. |
-| **3D** Notifications | **Partial** | List + mark read + `sp_CreateNotification` exist; PDF also wanted **automatic notifications from other flows** (“trigger calls in controllers”) — **not wired** yet. |
+| **3D** Notifications | **Done** | List + mark one + **mark all** + `sp_CreateNotification` + controller triggers (`Expense`, `Settlement`, `Group`) are wired. |
 | **4** Bank details | **Done** | Requires **`Encryption`** in config for production IBAN. |
 | **5** Group events | **Done** | `GroupEventsController` → `/api/Group/{groupId}/events`. DB adds **`@GroupId`** on update/delete (stricter than PDF); use **`FinTrackDB_Migration_Production_GroupEvents_GroupIdGuard.sql`** if you deployed an older step 5. |
 | **2B** WebAuthn | **Not done** | Optional per PDF. |
@@ -74,9 +74,8 @@ Equivalent behaviour, different names or shapes (not necessarily wrong).
 ### Still incomplete vs PDF
 
 1. **WebAuthn (2B)** — not implemented.  
-2. **Notifications (3D)** — no automatic inserts from expense/settlement/group flows yet.  
-3. **Refresh tokens** — optional: store **hash only** in DB per PDF.  
-4. **Frontend** — group events: switch from **localStorage** to API (per PDF).  
+2. **Refresh tokens** — optional: store **hash only** in DB per PDF.  
+3. **Frontend** — group events: switch from **localStorage** to API (per PDF).  
 
 ### All [`FinShare_ForAbhilash_PendingTasks.pdf`](Prompt/FinShare_ForAbhilash_PendingTasks.pdf) modules — flow, layers & naming
 
@@ -90,7 +89,7 @@ Use this table to see **where each PDF item lives** and whether the **API → se
 | **3A** — profile + photo | Profile GET/PUT, photo upload | `UserController` | `IProfileService`, `IProfilePhotoService` | `IUserRepository` inside those services; **photo path also calls `IUserRepository` from `UserController`** for `GetUserProfileAsync` / `UpdateProfilePhotoUrlAsync` (thin orchestration) |
 | **3B** — change password | Logged-in password change | `UserController` | `IProfileService.ChangePasswordAsync` | `IUserRepository` + refresh revoke via `IRefreshTokenRepository` in `ProfileService` |
 | **3C** — transactions | Personal expense + settlement history (+ summary) | `TransactionController` | `ITransactionService` | `ITransactionRepository` |
-| **3D** — notifications | List, mark read, **create** (for other flows later) | `NotificationController` | `INotificationService` (includes `CreateAsync` for future wiring) | `INotificationRepository` → `dbo.Notifications`, SPs `sp_GetNotifications` / `sp_MarkNotificationRead` / `sp_CreateNotification` |
+| **3D** — notifications | List, mark read, mark all, create trigger notifications | `NotificationController` | `INotificationService` (`GetAsync`, `MarkReadAsync`, `MarkAllReadAsync`, `CreateAsync`) | `INotificationRepository` → `dbo.Notifications`, SPs `sp_GetNotifications` / `sp_MarkNotificationRead` / `sp_MarkAllNotificationsRead` / `sp_CreateNotification` |
 | **4** — bank / IBAN | Masked bank row; settlement payee decrypt | `UserController`; `SettlementController` (`…/payee-bank-details`) | `IBankDetailsService` | `IBankDetailsRepository` → `MemberBankDetails` |
 | **5** — group events | CRUD under group | `GroupEventsController` | `IGroupEventService` | `IGroupEventRepository` → `GroupEvents` + SPs |
 | **2B** — WebAuthn | FIDO2 / credential endpoints | *Not in repo* | — | — |

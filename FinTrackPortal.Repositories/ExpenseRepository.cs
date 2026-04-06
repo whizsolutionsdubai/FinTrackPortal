@@ -27,7 +27,7 @@ namespace FinTrackPortal.Repositories
 
         private IDbConnection Connection => new SqlConnection(_config.GetConnectionString("DefaultConnection"));
 
-        public async Task<OperationResult<long>> AddExpenseAsync(long groupId, string description, decimal amount, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string createdBy)
+        public async Task<OperationResult<long>> AddExpenseAsync(long groupId, string description, decimal amount, string currencyCode, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string createdBy)
         {
             try
             {
@@ -37,7 +37,7 @@ namespace FinTrackPortal.Repositories
 
                 var expenseId = await conn.QuerySingleAsync<long>(
                     "sp_AddExpense",
-                    new { GroupId = groupId, Description = description, Amount = amount, PaidBy = paidBy, SplitType = splitType, CreatedBy = createdBy },
+                    new { GroupId = groupId, Description = description, Amount = amount, CurrencyCode = currencyCode, PaidBy = paidBy, SplitType = splitType, CreatedBy = createdBy },
                     transaction: tx,
                     commandType: CommandType.StoredProcedure);
 
@@ -62,7 +62,7 @@ namespace FinTrackPortal.Repositories
             }
         }
 
-        public async Task<OperationResult<bool>> EditExpenseAsync(long expenseId, string description, decimal amount, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string modifiedBy, string? expenseCategory, string? forReference)
+        public async Task<OperationResult<bool>> EditExpenseAsync(long expenseId, string description, decimal amount, string? currencyCode, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string modifiedBy, string? expenseCategory, string? forReference)
         {
             try
             {
@@ -77,6 +77,7 @@ namespace FinTrackPortal.Repositories
                         ExpenseId = expenseId,
                         Description = description,
                         Amount = amount,
+                        CurrencyCode = currencyCode,
                         PaidBy = paidBy,
                         SplitType = splitType,
                         ModifiedBy = modifiedBy,
@@ -154,7 +155,7 @@ namespace FinTrackPortal.Repositories
             }
         }
 
-        public async Task<OperationResult<long>> AddPersonalExpenseAsync(string description, decimal amount, long memberId, string createdBy, DateTime? expenseDate, long? accountId, string? expenseCategory, string? forReference)
+        public async Task<OperationResult<long>> AddPersonalExpenseAsync(string description, decimal amount, string currencyCode, long memberId, string createdBy, DateTime? expenseDate, long? accountId, string? expenseCategory, string? forReference)
         {
             try
             {
@@ -166,6 +167,7 @@ namespace FinTrackPortal.Repositories
                     {
                         Description = description,
                         Amount = amount,
+                        CurrencyCode = currencyCode,
                         MemberId = memberId,
                         CreatedBy = createdBy,
                         ExpenseDate = expenseDate.HasValue ? expenseDate.Value.Date : (DateTime?)null,
@@ -184,7 +186,7 @@ namespace FinTrackPortal.Repositories
             }
         }
 
-        public async Task<OperationResult<bool>> UpdatePersonalExpenseAsync(long expenseId, long memberId, string description, decimal amount, DateTime? expenseDate, long? accountId, string? expenseCategory, string? forReference, string modifiedBy)
+        public async Task<OperationResult<bool>> UpdatePersonalExpenseAsync(long expenseId, long memberId, string description, decimal amount, string? currencyCode, DateTime? expenseDate, long? accountId, string? expenseCategory, string? forReference, string modifiedBy)
         {
             try
             {
@@ -198,6 +200,7 @@ namespace FinTrackPortal.Repositories
                         MemberId = memberId,
                         Description = description,
                         Amount = amount,
+                        CurrencyCode = currencyCode,
                         ExpenseDate = expenseDate.HasValue ? expenseDate.Value.Date : (DateTime?)null,
                         AccountId = accountId,
                         ExpenseCategory = expenseCategory,

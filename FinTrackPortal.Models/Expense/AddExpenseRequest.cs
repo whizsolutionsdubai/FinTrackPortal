@@ -20,6 +20,9 @@ namespace FinTrackPortal.Models
         [Range(0.01, double.MaxValue)]
         public decimal Amount { get; set; }
 
+        [StringLength(3)]
+        public string CurrencyCode { get; set; } = "AED";
+
         [Required]
         public long PaidBy { get; set; }
 

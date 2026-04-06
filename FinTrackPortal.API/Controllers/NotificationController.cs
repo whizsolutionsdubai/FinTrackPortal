@@ -38,4 +38,13 @@ public class NotificationController : ControllerBase
             return NotFound(ApiResponse<object?>.ErrorResponse("Notification not found."));
         return Ok(ApiResponse<object>.SuccessResponse(new { }, "Marked read"));
     }
+
+    /// <summary>PUT /api/Notification/read-all</summary>
+    [HttpPut("read-all")]
+    public async Task<IActionResult> MarkAllRead()
+    {
+        var memberId = User.GetMemberId();
+        await _notifications.MarkAllReadAsync(memberId);
+        return Ok(ApiResponse<object>.SuccessResponse(new { }, "All notifications marked as read"));
+    }
 }
