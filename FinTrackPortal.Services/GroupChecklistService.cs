@@ -47,4 +47,10 @@ public sealed class GroupChecklistService : IGroupChecklistService
         var rows = await _repository.WithdrawClaimAsync(checklistItemId, memberId);
         return rows > 0 ? OperationResult<bool>.Success(true) : OperationResult<bool>.Failure("No active claim to withdraw.");
     }
+
+    public async Task<OperationResult<bool>> MarkCompleteAsync(long groupId, long eventId, long checklistItemId, long requestingMemberId)
+    {
+        var (result, message) = await _repository.MarkCompleteAsync(groupId, eventId, checklistItemId, requestingMemberId);
+        return result > 0 ? OperationResult<bool>.Success(true) : OperationResult<bool>.Failure(message ?? "Could not mark item as completed.");
+    }
 }

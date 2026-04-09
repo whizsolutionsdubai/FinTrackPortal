@@ -165,6 +165,30 @@ public sealed class GroupChecklistRepository : IGroupChecklistRepository
         }
     }
 
+    public async Task<(int Result, string? Message)> MarkCompleteAsync(long groupId, long eventId, long checklistItemId, long requestingMemberId)
+    {
+        try
+        {
+            using var conn = Connection;
+            var row = await conn.QueryFirstOrDefaultAsync<ChecklistResultRow>(
+                "sp_MarkChecklistItemCompleted",
+                new
+                {
+                    GroupId = groupId,
+                    EventId = eventId,
+                    ChecklistItemId = checklistItemId,
+                    RequestingMemberId = requestingMemberId
+                },
+                commandType: CommandType.StoredProcedure);
+            return (row?.Result ?? 0, row?.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "MarkCompleteAsync");
+            return (-1, ex.Message);
+        }
+    }
+
     private sealed class ChecklistResultRow
     {
         public int Result { get; set; }

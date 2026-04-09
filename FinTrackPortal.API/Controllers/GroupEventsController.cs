@@ -114,6 +114,11 @@ public class GroupEventsController : ControllerBase
     [HttpGet("{eventId:long}/expenses")]
     public async Task<IActionResult> GetEventExpenses(long groupId, long eventId)
     {
+        var memberId = User.GetMemberId();
+        var memberCheck = await _groups.IsMemberOfGroupAsync(groupId, memberId);
+        if (!memberCheck.IsSuccess || !memberCheck.Data)
+            return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<object?>.ErrorResponse("You must belong to the group to view event expenses."));
+
         var result = await _expenses.GetEventExpensesAsync(groupId, eventId);
         if (!result.IsSuccess)
             return BadRequest(ApiResponse<object?>.ErrorResponse(result.ErrorMessage!));

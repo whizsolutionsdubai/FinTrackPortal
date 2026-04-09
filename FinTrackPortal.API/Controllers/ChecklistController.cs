@@ -131,6 +131,25 @@ public class ChecklistController : ControllerBase
         return Ok(ApiResponse<bool>.SuccessResponse(true, "Claim withdrawn"));
     }
 
+    [HttpPut("{itemId:long}/complete")]
+    public async Task<IActionResult> MarkComplete(long groupId, long eventId, long itemId)
+    {
+        var memberId = User.GetMemberId();
+        var result = await _checklist.MarkCompleteAsync(groupId, eventId, itemId, memberId);
+        if (!result.IsSuccess)
+            return BadRequest(ApiResponse<object?>.ErrorResponse(result.ErrorMessage!));
+
+        await _audit.WriteAsync(
+            memberId,
+            AuditChecklistActions.ChecklistItemCompleted,
+            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            Request.Headers.UserAgent.ToString(),
+            true,
+            $"EventId={eventId}, ChecklistItemId={itemId}");
+
+        return Ok(ApiResponse<bool>.SuccessResponse(true, "Checklist item marked as completed"));
+    }
+
     private async Task TryNotifyGroup(long groupId, long actorMemberId, string title, string body, string type, string linkUrl)
     {
         try

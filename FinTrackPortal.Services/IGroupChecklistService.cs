@@ -11,4 +11,5 @@ public interface IGroupChecklistService
     Task<OperationResult<bool>> DeleteItemAsync(long checklistItemId);
     Task<OperationResult<bool>> ClaimItemAsync(long checklistItemId, long memberId, int quantityClaimed);
     Task<OperationResult<bool>> WithdrawClaimAsync(long checklistItemId, long memberId);
+    Task<OperationResult<bool>> MarkCompleteAsync(long groupId, long eventId, long checklistItemId, long requestingMemberId);
 }

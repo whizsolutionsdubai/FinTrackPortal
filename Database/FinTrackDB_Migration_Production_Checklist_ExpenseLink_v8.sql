@@ -124,7 +124,10 @@ BEGIN
     INNER JOIN [dbo].[Member] m ON m.[MemberId] = e.[PaidBy]
     LEFT JOIN [dbo].[EventChecklistItems] ci ON ci.[ChecklistItemId] = e.[ChecklistItemId]
     WHERE e.[GroupId] = @GroupId
-      AND e.[EventId] = @EventId
+      AND (
+            e.[EventId] = @EventId
+            OR (e.[ChecklistItemId] IS NOT NULL AND ci.[EventId] = @EventId)
+          )
       AND e.[IsActive] = 1
     ORDER BY e.[CreatedDate] DESC;
 END

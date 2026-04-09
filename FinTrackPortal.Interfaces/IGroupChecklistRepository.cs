@@ -10,4 +10,5 @@ public interface IGroupChecklistRepository
     Task<int> DeleteItemAsync(long checklistItemId);
     Task<(int Result, string? Message)> ClaimItemAsync(long checklistItemId, long memberId, int quantityClaimed);
     Task<int> WithdrawClaimAsync(long checklistItemId, long memberId);
+    Task<(int Result, string? Message)> MarkCompleteAsync(long groupId, long eventId, long checklistItemId, long requestingMemberId);
 }
