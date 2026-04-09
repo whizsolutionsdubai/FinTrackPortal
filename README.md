@@ -72,7 +72,7 @@ The **Auth enhancements** migration (step 2 in the [Database Schema](#database-s
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| POST | `/api/Expense/add` | Add a group expense with equal/custom split (`CurrencyCode`, default `AED`) |
+| POST | `/api/Expense/add` | Add a group expense with equal/custom split (`CurrencyCode`; optional `EventId`, `ChecklistItemId`, `AmountOriginal`) |
 | PUT | `/api/Expense/edit` | Edit a group expense (optional `ExpenseCategory`, `ForReference` on the request body) |
 | DELETE | `/api/Expense/delete/{expenseId}` | Soft-delete an expense |
 | GET | `/api/Expense/group/{groupId}` | Get expenses for a group |
@@ -150,6 +150,7 @@ The **Auth enhancements** migration (step 2 in the [Database Schema](#database-s
 | POST | `/api/Group/{groupId}/events` | Create event |
 | PUT | `/api/Group/{groupId}/events/{eventId}` | Update (creator only) |
 | DELETE | `/api/Group/{groupId}/events/{eventId}` | Soft-delete (creator only) |
+| GET | `/api/Group/{groupId}/events/{eventId}/expenses` | List expenses linked to the event |
 
 ### Settlements — payee bank (`api/Settlement`)
 
@@ -213,6 +214,7 @@ Use only when you intend to rebuild the database; read the script header.
 | 4 | `Database/FinTrackDB_Migration_UserRefreshTokens.sql` | `UserRefreshTokens`, refresh SPs, `sp_GetUserEmailByMemberId`, extends `sp_CleanupExpiredTokens` |
 | 5 | `Database/FinTrackDB_Migration_NewFeatures_Phase3to5.sql` | Profile (`ProfilePhotoUrl`), transaction history SPs, `Notifications`, `MemberBankDetails`, `GroupEvents` |
 | 6 | `Database/FinTrackDB_Migration_Production_BackendChanges_v6.sql` | `Expense.CurrencyCode`, expense SP currency parameters/result fields, `sp_MarkAllNotificationsRead` |
+| 7 | `Database/FinTrackDB_Migration_Production_Checklist_ExpenseLink_v8.sql` | Checklist-event expense linking (`EventId`, `ChecklistItemId`), `AmountOriginal`, `sp_GetEventExpenses`, `sp_AddExpense` validation |
 
 Optional: `Database/FinTrackDB_Migration_sp_ResetLoginAttempts.sql` only if you already ran Phase 2 before that procedure existed.
 

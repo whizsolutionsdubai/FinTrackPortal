@@ -169,6 +169,8 @@ builder.Services.AddScoped<IBankDetailsRepository, BankDetailsRepository>();
 builder.Services.AddScoped<IBankDetailsService, BankDetailsService>();
 builder.Services.AddScoped<IGroupEventRepository, GroupEventRepository>();
 builder.Services.AddScoped<IGroupEventService, GroupEventService>();
+builder.Services.AddScoped<IGroupChecklistRepository, GroupChecklistRepository>();
+builder.Services.AddScoped<IGroupChecklistService, GroupChecklistService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IProfilePhotoService, ProfilePhotoService>();
 

@@ -27,7 +27,7 @@ namespace FinTrackPortal.Repositories
 
         private IDbConnection Connection => new SqlConnection(_config.GetConnectionString("DefaultConnection"));
 
-        public async Task<OperationResult<long>> AddExpenseAsync(long groupId, string description, decimal amount, string currencyCode, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string createdBy)
+        public async Task<OperationResult<long>> AddExpenseAsync(long groupId, string description, decimal amount, string currencyCode, decimal? amountOriginal, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string createdBy, long? eventId, long? checklistItemId)
         {
             try
             {
@@ -37,9 +37,27 @@ namespace FinTrackPortal.Repositories
 
                 var expenseId = await conn.QuerySingleAsync<long>(
                     "sp_AddExpense",
-                    new { GroupId = groupId, Description = description, Amount = amount, CurrencyCode = currencyCode, PaidBy = paidBy, SplitType = splitType, CreatedBy = createdBy },
+                    new
+                    {
+                        GroupId = groupId,
+                        Description = description,
+                        Amount = amount,
+                        CurrencyCode = currencyCode,
+                        AmountOriginal = amountOriginal,
+                        PaidBy = paidBy,
+                        SplitType = splitType,
+                        CreatedBy = createdBy,
+                        EventId = eventId,
+                        ChecklistItemId = checklistItemId
+                    },
                     transaction: tx,
                     commandType: CommandType.StoredProcedure);
+
+                if (expenseId <= 0)
+                {
+                    tx.Rollback();
+                    return OperationResult<long>.Failure("Expense validation failed (event/checklist or amount fields).");
+                }
 
                 var shares = CalculateShares(amount, splitType, members, customAmounts);
 
@@ -152,6 +170,24 @@ namespace FinTrackPortal.Repositories
             {
                 _logger.LogError(ex, "Error fetching expenses for group {GroupId}", groupId);
                 return OperationResult<List<ExpenseResponse>>.Failure(ex.Message);
+            }
+        }
+
+        public async Task<OperationResult<List<EventExpenseSummaryResponse>>> GetEventExpensesAsync(long groupId, long eventId)
+        {
+            try
+            {
+                using var conn = Connection;
+                var rows = (await conn.QueryAsync<EventExpenseSummaryResponse>(
+                    "sp_GetEventExpenses",
+                    new { GroupId = groupId, EventId = eventId },
+                    commandType: CommandType.StoredProcedure)).ToList();
+                return OperationResult<List<EventExpenseSummaryResponse>>.Success(rows);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching event expenses for group {GroupId} event {EventId}", groupId, eventId);
+                return OperationResult<List<EventExpenseSummaryResponse>>.Failure(ex.Message);
             }
         }
 

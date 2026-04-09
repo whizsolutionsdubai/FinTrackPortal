@@ -11,7 +11,7 @@ namespace FinTrackPortal.Interfaces
     public interface IExpenseRepository
     {
         /// <summary>Add a group expense and its splits in a single C# transaction (sp_AddExpense + sp_AddExpenseSplit).</summary>
-        Task<OperationResult<long>> AddExpenseAsync(long groupId, string description, decimal amount, string currencyCode, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string createdBy);
+        Task<OperationResult<long>> AddExpenseAsync(long groupId, string description, decimal amount, string currencyCode, decimal? amountOriginal, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string createdBy, long? eventId, long? checklistItemId);
 
         /// <summary>Update expense details and rebuild all splits (sp_UpdateExpense + sp_DeleteExpenseSplits + sp_AddExpenseSplit).</summary>
         Task<OperationResult<bool>> EditExpenseAsync(long expenseId, string description, decimal amount, string? currencyCode, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string modifiedBy, string? expenseCategory, string? forReference);
@@ -21,6 +21,7 @@ namespace FinTrackPortal.Interfaces
 
         /// <summary>List all active expenses for a group (sp_GetExpensesByGroup).</summary>
         Task<OperationResult<List<ExpenseResponse>>> GetExpensesByGroupAsync(long groupId);
+        Task<OperationResult<List<EventExpenseSummaryResponse>>> GetEventExpensesAsync(long groupId, long eventId);
 
         /// <summary>Add a personal (non-group) expense — stored with GroupId = NULL (sp_AddPersonalExpense).</summary>
         Task<OperationResult<long>> AddPersonalExpenseAsync(string description, decimal amount, string currencyCode, long memberId, string createdBy, DateTime? expenseDate, long? accountId, string? expenseCategory, string? forReference);

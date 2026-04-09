@@ -14,8 +14,8 @@ namespace FinTrackPortal.Services
             _repository = repository;
         }
 
-        public Task<OperationResult<long>> AddExpenseAsync(long groupId, string description, decimal amount, string currencyCode, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string createdBy)
-            => _repository.AddExpenseAsync(groupId, description, amount, currencyCode, paidBy, splitType, members, customAmounts, createdBy);
+        public Task<OperationResult<long>> AddExpenseAsync(long groupId, string description, decimal amount, string currencyCode, decimal? amountOriginal, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string createdBy, long? eventId, long? checklistItemId)
+            => _repository.AddExpenseAsync(groupId, description, amount, currencyCode, amountOriginal, paidBy, splitType, members, customAmounts, createdBy, eventId, checklistItemId);
 
         public Task<OperationResult<bool>> EditExpenseAsync(long expenseId, string description, decimal amount, string? currencyCode, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string modifiedBy, string? expenseCategory, string? forReference)
             => _repository.EditExpenseAsync(expenseId, description, amount, currencyCode, paidBy, splitType, members, customAmounts, modifiedBy, expenseCategory, forReference);
@@ -25,6 +25,9 @@ namespace FinTrackPortal.Services
 
         public Task<OperationResult<List<ExpenseResponse>>> GetExpensesByGroupAsync(long groupId)
             => _repository.GetExpensesByGroupAsync(groupId);
+
+        public Task<OperationResult<List<EventExpenseSummaryResponse>>> GetEventExpensesAsync(long groupId, long eventId)
+            => _repository.GetEventExpensesAsync(groupId, eventId);
 
         public Task<OperationResult<long>> AddPersonalExpenseAsync(string description, decimal amount, string currencyCode, long memberId, string createdBy, DateTime? expenseDate, long? accountId, string? expenseCategory, string? forReference)
             => _repository.AddPersonalExpenseAsync(description, amount, currencyCode, memberId, createdBy, expenseDate, accountId, expenseCategory, forReference);

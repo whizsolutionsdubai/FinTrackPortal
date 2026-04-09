@@ -9,10 +9,11 @@ namespace FinTrackPortal.Services
     /// </summary>
     public interface IExpenseService
     {
-        Task<OperationResult<long>> AddExpenseAsync(long groupId, string description, decimal amount, string currencyCode, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string createdBy);
+        Task<OperationResult<long>> AddExpenseAsync(long groupId, string description, decimal amount, string currencyCode, decimal? amountOriginal, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string createdBy, long? eventId, long? checklistItemId);
         Task<OperationResult<bool>> EditExpenseAsync(long expenseId, string description, decimal amount, string? currencyCode, long paidBy, string splitType, List<long> members, List<decimal>? customAmounts, string modifiedBy, string? expenseCategory, string? forReference);
         Task<OperationResult<bool>> DeleteExpenseAsync(long expenseId, string modifiedBy);
         Task<OperationResult<List<ExpenseResponse>>> GetExpensesByGroupAsync(long groupId);
+        Task<OperationResult<List<EventExpenseSummaryResponse>>> GetEventExpensesAsync(long groupId, long eventId);
         Task<OperationResult<long>> AddPersonalExpenseAsync(string description, decimal amount, string currencyCode, long memberId, string createdBy, DateTime? expenseDate, long? accountId, string? expenseCategory, string? forReference);
         Task<OperationResult<bool>> UpdatePersonalExpenseAsync(long expenseId, long memberId, string description, decimal amount, string? currencyCode, DateTime? expenseDate, long? accountId, string? expenseCategory, string? forReference, string modifiedBy);
         Task<OperationResult<List<ExpenseResponse>>> GetPersonalExpensesAsync(long memberId, string? category);

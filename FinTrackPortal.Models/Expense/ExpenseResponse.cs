@@ -18,6 +18,24 @@ namespace FinTrackPortal.Models
         public string? ExpenseCategory { get; set; }
         public string? ForReference { get; set; }
         public string? AccountName { get; set; }
+        public long? EventId { get; set; }
+        public long? ChecklistItemId { get; set; }
+        public string? ChecklistItemName { get; set; }
+        public decimal? AmountOriginal { get; set; }
+        public DateTime CreatedDate { get; set; }
+    }
+
+    public class EventExpenseSummaryResponse
+    {
+        public long ExpenseId { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+        public decimal? AmountOriginal { get; set; }
+        public string? CurrencyCode { get; set; }
+        public long PaidBy { get; set; }
+        public string PaidByName { get; set; } = string.Empty;
+        public long? ChecklistItemId { get; set; }
+        public string? ChecklistItemName { get; set; }
         public DateTime CreatedDate { get; set; }
     }
 }

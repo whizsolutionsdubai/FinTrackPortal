@@ -56,12 +56,19 @@ namespace FinTrackPortal.API.Controllers
                     "Failed to record settlement", result.ErrorMessage!));
 
             var fromName = User.GetEmail();
-            await _notifications.CreateAsync(
-                request.ToMemberId,
-                "Settlement Received",
-                $"{fromName} marked a payment of {request.Amount:N2} to you",
-                "settlement",
-                "/settlement");
+            try
+            {
+                await _notifications.CreateAsync(
+                    request.ToMemberId,
+                    "Settlement Received",
+                    $"{fromName} marked a payment of {request.Amount:N2} to you",
+                    "settlement",
+                    "/settlement");
+            }
+            catch
+            {
+                // Notification delivery should never block settlement recording.
+            }
 
             return Ok(ApiResponse<object>.SuccessResponse(new
             {

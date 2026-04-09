@@ -1,6 +1,7 @@
 using FinTrackPortal.API.Extensions;
 using FinTrackPortal.API.Services;
 using FinTrackPortal.Common;
+using FinTrackPortal.Interfaces;
 using FinTrackPortal.Models;
 using FinTrackPortal.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -22,17 +23,20 @@ namespace FinTrackPortal.API.Controllers
         private readonly IGroupService _groupService;
         private readonly IAttachmentStorageService _attachmentStorage;
         private readonly INotificationService _notifications;
+        private readonly IAuditLogRepository _audit;
 
         public ExpenseController(
             IExpenseService expenseService,
             IGroupService groupService,
             IAttachmentStorageService attachmentStorage,
-            INotificationService notifications)
+            INotificationService notifications,
+            IAuditLogRepository audit)
         {
             _expenseService = expenseService;
             _groupService = groupService;
             _attachmentStorage = attachmentStorage;
             _notifications = notifications;
+            _audit = audit;
         }
 
         /// <summary>
@@ -76,16 +80,32 @@ namespace FinTrackPortal.API.Controllers
                     return BadRequest(ApiResponse<object?>.ErrorResponse("Validation failed", "CustomAmounts must sum up to the total Amount."));
             }
 
+            if (request.ChecklistItemId.HasValue && !request.EventId.HasValue)
+                return BadRequest(ApiResponse<object?>.ErrorResponse("Validation failed", "EventId is required when ChecklistItemId is provided."));
+
+            if (!string.IsNullOrWhiteSpace(request.CurrencyCode) &&
+                !string.Equals(request.CurrencyCode, "AED", StringComparison.OrdinalIgnoreCase) &&
+                !request.AmountOriginal.HasValue)
+            {
+                return BadRequest(ApiResponse<object?>.ErrorResponse("Validation failed", "AmountOriginal is required for non-AED currency."));
+            }
+
+            if (request.AmountOriginal.HasValue && request.AmountOriginal.Value <= 0)
+                return BadRequest(ApiResponse<object?>.ErrorResponse("Validation failed", "AmountOriginal must be greater than zero."));
+
             var result = await _expenseService.AddExpenseAsync(
                 request.GroupId,
                 request.Description,
                 request.Amount,
                 request.CurrencyCode,
+                request.AmountOriginal,
                 request.PaidBy,
                 request.SplitType,
                 request.Members,
                 request.CustomAmounts,
-                createdBy);
+                createdBy,
+                request.EventId,
+                request.ChecklistItemId);
 
             if (!result.IsSuccess)
                 return BadRequest(ApiResponse<object?>.ErrorResponse("Failed to add expense", result.ErrorMessage!));
@@ -93,15 +113,33 @@ namespace FinTrackPortal.API.Controllers
             var members = await _groupService.GetGroupMembersAsync(request.GroupId);
             if (members.IsSuccess && members.Data != null)
             {
-                foreach (var member in members.Data.Where(m => m.MemberId != memberId))
+                try
                 {
-                    await _notifications.CreateAsync(
-                        member.MemberId,
-                        "New Expense Added",
-                        $"{createdBy} added '{request.Description}' - {request.Amount:N2} {request.CurrencyCode}",
-                        "expense",
-                        $"/group/{request.GroupId}");
+                    foreach (var member in members.Data.Where(m => m.MemberId != memberId))
+                    {
+                        await _notifications.CreateAsync(
+                            member.MemberId,
+                            "New Expense Added",
+                            $"{createdBy} added '{request.Description}' - {request.Amount:N2} {request.CurrencyCode}",
+                            "expense",
+                            $"/group/{request.GroupId}");
+                    }
                 }
+                catch
+                {
+                    // Notification delivery should never block expense creation.
+                }
+            }
+
+            if (request.ChecklistItemId.HasValue)
+            {
+                await _audit.WriteAsync(
+                    memberId,
+                    AuditChecklistActions.ChecklistExpenseLinked,
+                    HttpContext.Connection.RemoteIpAddress?.ToString(),
+                    Request.Headers.UserAgent.ToString(),
+                    true,
+                    $"ExpenseId={result.Data}, ChecklistItemId={request.ChecklistItemId}, EventId={request.EventId}");
             }
 
             return Ok(ApiResponse<object>.SuccessResponse(new

@@ -14,10 +14,23 @@ namespace FinTrackPortal.API.Controllers;
 public class GroupEventsController : ControllerBase
 {
     private readonly IGroupEventService _events;
+    private readonly IGroupService _groups;
+    private readonly IExpenseService _expenses;
+    private readonly INotificationService _notifications;
+    private readonly ILogger<GroupEventsController> _logger;
 
-    public GroupEventsController(IGroupEventService events)
+    public GroupEventsController(
+        IGroupEventService events,
+        IGroupService groups,
+        IExpenseService expenses,
+        INotificationService notifications,
+        ILogger<GroupEventsController> logger)
     {
         _events = events;
+        _groups = groups;
+        _expenses = expenses;
+        _notifications = notifications;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -43,6 +56,15 @@ public class GroupEventsController : ControllerBase
         var result = await _events.CreateAsync(groupId, memberId, request);
         if (!result.IsSuccess)
             return BadRequest(ApiResponse<object?>.ErrorResponse(result.ErrorMessage!));
+
+        await TryNotifyGroup(
+            groupId,
+            memberId,
+            "New Event Created",
+            $"New event: {request.Title} - {request.EventDate:yyyy-MM-dd HH:mm}",
+            "event",
+            $"/group/{groupId}/events/{result.Data}");
+
         return Ok(ApiResponse<object>.SuccessResponse(new { eventId = result.Data }, "Event created"));
     }
 
@@ -56,9 +78,26 @@ public class GroupEventsController : ControllerBase
         }
 
         var memberId = User.GetMemberId();
+        var before = await _events.GetAsync(groupId, memberId);
+        var oldEvent = before.IsSuccess ? before.Data?.FirstOrDefault(e => e.EventId == eventId) : null;
         var result = await _events.UpdateAsync(groupId, eventId, memberId, request);
         if (!result.IsSuccess)
             return BadRequest(ApiResponse<object?>.ErrorResponse(result.ErrorMessage!));
+
+        var changedDateOrLocation = oldEvent != null &&
+                                    (oldEvent.EventDate != request.EventDate ||
+                                     !string.Equals(oldEvent.Location, request.Location, StringComparison.Ordinal));
+        if (changedDateOrLocation)
+        {
+            await TryNotifyGroup(
+                groupId,
+                memberId,
+                "Event Updated",
+                $"Event updated: {request.Title}",
+                "event",
+                $"/group/{groupId}/events/{eventId}");
+        }
+
         return Ok(ApiResponse<object>.SuccessResponse(new { }, "Event updated"));
     }
 
@@ -70,5 +109,29 @@ public class GroupEventsController : ControllerBase
         if (!result.IsSuccess)
             return BadRequest(ApiResponse<object?>.ErrorResponse(result.ErrorMessage!));
         return Ok(ApiResponse<object>.SuccessResponse(new { }, "Event deleted"));
+    }
+
+    [HttpGet("{eventId:long}/expenses")]
+    public async Task<IActionResult> GetEventExpenses(long groupId, long eventId)
+    {
+        var result = await _expenses.GetEventExpensesAsync(groupId, eventId);
+        if (!result.IsSuccess)
+            return BadRequest(ApiResponse<object?>.ErrorResponse(result.ErrorMessage!));
+        return Ok(ApiResponse<List<EventExpenseSummaryResponse>>.SuccessResponse(result.Data!, "OK"));
+    }
+
+    private async Task TryNotifyGroup(long groupId, long actorMemberId, string title, string body, string type, string linkUrl)
+    {
+        try
+        {
+            var members = await _groups.GetGroupMembersAsync(groupId);
+            if (!members.IsSuccess || members.Data == null) return;
+            foreach (var member in members.Data.Where(m => m.MemberId != actorMemberId))
+                await _notifications.CreateAsync(member.MemberId, title, body, type, linkUrl);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Group event notification failed");
+        }
     }
 }

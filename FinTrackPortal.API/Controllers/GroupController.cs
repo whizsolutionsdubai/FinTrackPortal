@@ -96,12 +96,19 @@ namespace FinTrackPortal.API.Controllers
                 ? groupSummary.Data.GroupName
                 : $"#{request.GroupId}";
 
-            await _notifications.CreateAsync(
-                request.MemberId,
-                "Added to Group",
-                $"You have been added to group '{groupName}'",
-                "group",
-                $"/group/{request.GroupId}");
+            try
+            {
+                await _notifications.CreateAsync(
+                    request.MemberId,
+                    "Added to Group",
+                    $"You have been added to group '{groupName}'",
+                    "group",
+                    $"/group/{request.GroupId}");
+            }
+            catch
+            {
+                // Notification delivery should never block group membership changes.
+            }
 
             return Ok(ApiResponse<object>.SuccessResponse(new
             {

@@ -23,6 +23,10 @@ namespace FinTrackPortal.Models
         [StringLength(3)]
         public string CurrencyCode { get; set; } = "AED";
 
+        public long? EventId { get; set; }
+        public long? ChecklistItemId { get; set; }
+        public decimal? AmountOriginal { get; set; }
+
         [Required]
         public long PaidBy { get; set; }
 
