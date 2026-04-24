@@ -13,5 +13,13 @@ namespace FinTrackPortal.Models
         [Required]
         [StringLength(255)]
         public string Password { get; set; } = string.Empty;
+
+
+        [Required]
+        [StringLength(255)]
+        public string OTP { get; set; } = string.Empty;
+
+
+
     }
 }
